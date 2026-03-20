@@ -22,3 +22,6 @@ build/
 .next/
 .parcel-cache/
 .cache/
+
+model/data/*.csv
+.env
