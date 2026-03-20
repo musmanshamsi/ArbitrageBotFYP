@@ -11,11 +11,10 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# --- DATABASE SETUP (PRODUCTION LEVEL) ---
+# --- DATABASE SETUP ---
 DB_FILE = "arbitrage_bot.db"
 
 def init_db():
-    """Creates a local database file if it doesn't exist."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute('''
@@ -39,7 +38,7 @@ load_dotenv()
 try:
     from execution.trader import TradeExecutor
     from llm.ai_agent import AIAgent
-    print("✅ Logic Modules Loaded")
+    print("✅ System Modules Loaded Successfully")
 except ImportError as e:
     print(f"❌ Critical Import Error: {e}")
     sys.exit(1)
@@ -47,7 +46,8 @@ except ImportError as e:
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-trader = TradeExecutor(
+# Initialize Exchange Connection
+trader_logic = TradeExecutor(
     binance_api=os.getenv("BINANCE_TESTNET_API"),
     binance_secret=os.getenv("BINANCE_TESTNET_SECRET"),
     bybit_api=os.getenv("BYBIT_TESTNET_API"),
@@ -61,66 +61,82 @@ class BotState:
     is_running = False
     current_status = "IDLE"
     last_trade_time = 0
-    cooldown = 30 # Seconds to wait after a trade
+    cooldown = 30 
 
 state = BotState()
 
+# --- HELPER FUNCTIONS ---
 def save_trade_to_db(ts, route, profit):
-    """Synchronous function to write trade to SQLite."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO trades (timestamp, route, profit) VALUES (?, ?, ?)", (ts, route, profit))
     conn.commit()
     conn.close()
 
+async def get_unified_balances(current_btc_price):
+    """Calculates full account value across both exchanges."""
+    try:
+        # Fetch balances in parallel for speed
+        b_task = asyncio.to_thread(trader_logic.binance.fetch_balance)
+        y_task = asyncio.to_thread(trader_logic.bybit.fetch_balance)
+        b_bal, y_bal = await asyncio.gather(b_task, y_task)
+
+        def extract_assets(bal_obj):
+            usdt = bal_obj.get('USDT', {}).get('total', 0.0)
+            btc = bal_obj.get('BTC', {}).get('total', 0.0)
+            return {
+                "usdt": usdt,
+                "btc": btc,
+                "total_usd": usdt + (btc * current_btc_price)
+            }
+
+        binance_stats = extract_assets(b_bal)
+        bybit_stats = extract_assets(y_bal)
+
+        return {
+            "binance": binance_stats,
+            "bybit": bybit_stats,
+            "grand_total": binance_stats['total_usd'] + bybit_stats['total_usd']
+        }
+    except Exception as e:
+        print(f"Balance Sync Error: {e}")
+        # Fallback to defaults if API fails
+        return None
+
 # --- BACKGROUND TRADE WORKFLOW ---
 async def attempt_trade(b_price, bybit_price, spread, websocket: WebSocket):
     state.current_status = "CONSULTING_AI"
-    
-    await websocket.send_text(json.dumps({
-        "type": "ai_msg", 
-        "text": f"🔍 Opportunity detected ({spread:.2f}%). Analyzing market conditions..."
-    }))
+    await websocket.send_text(json.dumps({"type": "ai_msg", "text": f"🔍 Spread detected: {spread:.2f}%. AI is validating..."}))
 
     try:
         analysis = await asyncio.to_thread(ai_bot.analyze_opportunity, b_price, bybit_price, spread)
-        decision = analysis.get("decision", "REJECT")
-        reason = analysis.get("reason", "Spread volatility too high.")
-
-        if decision == "EXECUTE":
+        if analysis.get("decision") == "EXECUTE":
             state.current_status = "EXECUTING_TRADE"
-            await websocket.send_text(json.dumps({"type": "ai_msg", "text": f"✅ AI APPROVED: {reason}. Executing..."}))
+            await websocket.send_text(json.dumps({"type": "ai_msg", "text": "✅ AI APPROVED. Executing arbitrage..."}))
             
-            await asyncio.to_thread(trader.execute_arbitrage, 'BTC/USDT', 0.01)
+            # Real Execution Call
+            await asyncio.to_thread(trader_logic.execute_arbitrage, 'BTC/USDT', 0.01)
             
-            # Calculate profit and save to DATABASE
             profit_est = (b_price * 0.01) * (spread / 100)
-            timestamp_str = datetime.now().strftime("%H:%M:%S")
-            route_str = "BINANCE ➔ BYBIT"
+            ts = datetime.now().strftime("%H:%M:%S")
             
-            # Save to SQLite asynchronously so it doesn't block the server
-            await asyncio.to_thread(save_trade_to_db, timestamp_str, route_str, profit_est)
+            await asyncio.to_thread(save_trade_to_db, ts, "BINANCE ➔ BYBIT", profit_est)
             
-            trade_data = {
-                "time": timestamp_str,
-                "route": route_str,
-                "profit": f"${profit_est:.2f}"
-            }
-            
-            await websocket.send_text(json.dumps({"type": "trade", "trade": trade_data, "raw_profit": profit_est}))
+            await websocket.send_text(json.dumps({
+                "type": "trade", 
+                "trade": {"time": ts, "route": "BINANCE ➔ BYBIT", "profit": f"${profit_est:.2f}"},
+                "raw_profit": profit_est
+            }))
             state.last_trade_time = time.time()
-            
         else:
-            await websocket.send_text(json.dumps({"type": "ai_msg", "text": f"✋ AI REJECTED: {reason}"}))
+            await websocket.send_text(json.dumps({"type": "ai_msg", "text": f"✋ AI REJECTED: {analysis.get('reason')}"}))
             state.last_trade_time = time.time()
-
     except Exception as e:
         print(f"Trade Error: {e}")
-        await websocket.send_text(json.dumps({"type": "ai_msg", "text": f"❌ System Error during execution: {e}"}))
     finally:
         state.current_status = "SCANNING_MARKET" if state.is_running else "IDLE"
 
-# --- REST API ENDPOINTS ---
+# --- API ROUTES ---
 @app.post("/toggle_bot")
 async def toggle_bot(data: dict):
     state.is_running = data.get("active", False)
@@ -129,28 +145,18 @@ async def toggle_bot(data: dict):
 
 @app.get("/api/history")
 async def get_history():
-    """Fetches all past trades and total profit from the database."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT timestamp, route, profit FROM trades ORDER BY id DESC")
     rows = cursor.fetchall()
     conn.close()
-
-    history = []
-    total_profit = 0.0
-    for row in rows:
-        history.append({
-            "time": row[0],
-            "route": row[1],
-            "profit": f"${row[2]:.2f}"
-        })
-        total_profit += row[2]
-
+    
+    total_profit = sum(row[2] for row in rows)
+    history = [{"time": r[0], "route": r[1], "profit": f"${r[2]:.2f}"} for r in rows]
     return {"history": history, "total_profit": total_profit}
 
 @app.post("/api/reset")
 async def reset_db():
-    """Wipes the database cleanly."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM trades")
@@ -158,59 +164,46 @@ async def reset_db():
     conn.close()
     return {"status": "success"}
 
-# --- WEBSOCKET ENDPOINT ---
+# --- MAIN WEBSOCKET ---
 @app.websocket("/ws/market")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
-    real_binance_bal = 0.00
-    real_bybit_bal = 0.00
-    
-    try:
-        print("🔄 Fetching real wallet balances from APIs...")
-        b_balance_data = trader.binance.fetch_balance()
-        real_binance_bal = b_balance_data.get('USDT', {}).get('free', 0.00)
-        
-        y_balance_data = trader.bybit.fetch_balance() 
-        real_bybit_bal = y_balance_data.get('USDT', {}).get('free', 0.00)
-        print(f"✅ Real Balances Loaded! Binance: ${real_binance_bal} | Bybit: ${real_bybit_bal}")
-        
-    except Exception as e:
-        print(f"⚠️ API Balance Error: {e}")
-        real_binance_bal = 1050.00  
-        real_bybit_bal = 1000.00
-
     try:
         while True:
-            ticker = trader.binance.fetch_ticker('BTC/USDT')
+            # 1. Get Market Data
+            ticker = await asyncio.to_thread(trader_logic.binance.fetch_ticker, 'BTC/USDT')
             b_price = ticker['last']
-            fluctuation = random.uniform(-0.002, 0.012)
+            
+            # Simulated Spread Logic (Replace with real logic if preferred)
+            fluctuation = random.uniform(-0.001, 0.011)
             bybit_price = b_price * (1 + fluctuation)
             spread = ((bybit_price - b_price) / b_price) * 100
             
-            is_op = spread >= 1.0
+            # 2. Get Unified Balances
+            balances = await get_unified_balances(b_price)
 
-            current_time = time.time()
-            if state.is_running and is_op and (current_time - state.last_trade_time) > state.cooldown:
+            # 3. Check for Trades
+            is_op = spread >= 1.0
+            if state.is_running and is_op and (time.time() - state.last_trade_time) > state.cooldown:
                 asyncio.create_task(attempt_trade(b_price, bybit_price, spread, websocket))
 
+            # 4. Send Unified Payload
             payload = {
                 "type": "market",
                 "binance": b_price,
-                "kraken": bybit_price, 
+                "kraken": bybit_price, # Mapped to your UI component name
                 "spread": spread,
                 "opportunity": is_op,
                 "status": state.current_status,
-                "latency": random.randint(40, 70),
-                "risk": "LOW" if spread < 0.8 else "HIGH",
-                "binance_bal": real_binance_bal,
-                "bybit_bal": real_bybit_bal
+                "balances": balances, # New Complete Balance Object
+                "latency": random.randint(30, 60),
+                "risk": "LOW" if spread < 0.8 else "HIGH"
             }
             await websocket.send_text(json.dumps(payload))
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)
 
     except WebSocketDisconnect:
-        print("❌ UI Disconnected")
+        print("❌ Frontend disconnected")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
