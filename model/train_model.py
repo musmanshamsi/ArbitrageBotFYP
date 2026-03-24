@@ -36,10 +36,22 @@ print("Using dataset:", csv_file)
 
 df = pd.read_csv(csv_file)
 
+# Normalize column names to lowercase
+df.columns = [c.lower() for c in df.columns]
+
+# Map specific variants to required names
+column_mapping = {
+    'unix timestamp': 'timestamp',
+    'date': 'timestamp'
+}
+for old_col, new_col in column_mapping.items():
+    if old_col in df.columns and new_col not in df.columns:
+        df.rename(columns={old_col: new_col}, inplace=True)
+
 required_cols = ["timestamp", "open", "high", "low", "close", "volume"]
 for col in required_cols:
     if col not in df.columns:
-        raise Exception(f"Missing column: {col}")
+        raise Exception(f"Missing column: {col}. Available: {list(df.columns)}")
 
 df = df.sort_values("timestamp")
 df["return"] = df["close"].pct_change()
@@ -47,6 +59,11 @@ df["volatility"] = df["return"].rolling(20).std()
 df["target"] = df["close"].shift(-1)
 
 df.dropna(inplace=True)
+
+# Limit dataset size to avoid MemoryError (using last 500k samples)
+MAX_SAMPLES = 500000
+if len(df) > MAX_SAMPLES:
+    df = df.tail(MAX_SAMPLES).copy()
 
 features = ["open", "high", "low", "close", "volume", "return", "volatility"]
 
@@ -62,8 +79,8 @@ for i in range(len(scaled) - SEQ_LEN):
     X.append(scaled[i:i+SEQ_LEN])
     y.append(df["target"].iloc[i+SEQ_LEN])
 
-X = np.array(X)
-y = np.array(y)
+X = np.array(X, dtype=np.float32)
+y = np.array(y, dtype=np.float32)
 
 split = int(len(X) * 0.8)
 

@@ -30,32 +30,36 @@ class Predictor:
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
             self.model.eval()
-            print("OK: Model Loaded.")
+            print("✅ PyTorch Model Loaded.")
         else:
-            print(f"Error: {model_path} missing.")
+            print(f"❌ Error: {model_path} not found!")
 
         if os.path.exists(scaler_path):
             params = np.load(scaler_path)
             self.min_val = params[0]
             self.max_val = params[1]
-            print("OK: Scaler Loaded.")
+            print("✅ Scaler Loaded.")
 
     def predict(self, data_sequence):
         if self.model is None or self.min_val is None:
             return 0.0
+
         data_sequence = np.array(data_sequence).flatten()
         scaled = (data_sequence - self.min_val) / (self.max_val - self.min_val)
         input_tensor = torch.Tensor(scaled).view(1, 10, 1).to(self.device)
+        
         with torch.no_grad():
             h = torch.zeros(2, 1, 50).to(self.device)
             prediction, _ = self.model(input_tensor, h)
-        res = prediction.item()
-        return res * (self.max_val - self.min_val) + self.min_val
+            
+        predicted_val = prediction.item() 
+        unscaled_pred = predicted_val * (self.max_val - self.min_val) + self.min_val
+        
+        return unscaled_pred
 
 if __name__ == "__main__":
     p = Predictor()
     p.load()
-    test_data = [0.01] * 10
-    ans = p.predict(test_data)
-    # The fix for the format error is using float()
-    print(f"Result: {float(ans):.6f}")
+    dummy_input = [0.01, 0.012, 0.011, 0.015, 0.014, 0.016, 0.013, 0.011, 0.012, 0.015]
+    result = p.predict(dummy_input)
+    print(f"Next Predicted Spread: {float(result):.6f}%")
