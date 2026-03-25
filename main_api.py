@@ -4,9 +4,15 @@ import sqlite3
 import ccxt.async_support as ccxt
 from datetime import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from predictor import Predictor  # Imports your AI brain
+
+# --- SECURITY IMPORTS ---
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
@@ -22,18 +28,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- SECURITY CONFIG & DEPENDENCIES ---
+SECRET_KEY = "your_super_secret_fyp_key" # Tip: Move this to .env before going live!
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Tells FastAPI where to look for the token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+class UserAuth(BaseModel):
+    username: str
+    password: str
+
+# 🛡️ The "Bouncer": Validates the token for protected routes
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        # Decode and verify the token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+        
+    return username # Returns the verified operator's username
+
+
 # --- DATABASE SETUP ---
 DB_FILE = "arbitrage.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    # Existing trades table
     c.execute('''
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             time TEXT,
             route TEXT,
             profit REAL
+        )
+    ''')
+    # Users table for authentication
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
         )
     ''')
     conn.commit()
@@ -60,6 +106,38 @@ def save_trade_to_db(time_str, route, profit_val):
     conn.close()
 
 init_db()
+
+
+# --- PUBLIC AUTHENTICATION ENDPOINTS ---
+
+@app.post("/api/register")
+async def register(user: UserAuth):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    try:
+        hashed_pw = pwd_context.hash(user.password)
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (user.username, hashed_pw))
+        conn.commit()
+        return {"status": "success", "message": "User registered"}
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    finally:
+        conn.close()
+
+@app.post("/api/login")
+async def login(user: UserAuth):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT password FROM users WHERE username = ?", (user.username,))
+    result = c.fetchone()
+    conn.close()
+
+    if result and pwd_context.verify(user.password, result[0]):
+        token = jwt.encode({"sub": user.username}, SECRET_KEY, algorithm=ALGORITHM)
+        return {"status": "success", "token": token, "username": user.username}
+    
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
 
 # --- GLOBAL STATE & AI SETUP ---
 bot_active = False
@@ -95,30 +173,52 @@ exchange_bybit.set_sandbox_mode(True)
 SYMBOL = 'BTC/USDT'
 TRADE_SIZE = 0.01 
 
-# --- REST API ENDPOINTS ---
+
+# --- SECURE REST API ENDPOINTS ---
+# Notice the `current_user` dependency added to these routes!
 
 @app.post("/toggle_bot")
-async def toggle_bot(payload: dict):
+async def toggle_bot(payload: dict, current_user: str = Depends(get_current_user)):
     global bot_active
     bot_active = payload.get("active", False)
+    print(f"🔐 Operator '{current_user}' changed bot status to: {bot_active}")
     return {"status": "success", "bot_active": bot_active}
 
 @app.post("/api/threshold")
-async def update_threshold(payload: dict):
+async def update_threshold(payload: dict, current_user: str = Depends(get_current_user)):
     global current_threshold
     current_threshold = float(payload.get("threshold", 0.08))
+    print(f"🔐 Operator '{current_user}' updated threshold to: {current_threshold}")
     return {"status": "success", "threshold": current_threshold}
 
 @app.get("/api/history")
-async def get_history():
+async def get_history(current_user: str = Depends(get_current_user)):
+    print(f"🔐 Operator '{current_user}' requested trade history.")
     return {"history": trade_history, "total_profit": total_profit}
 
-# --- WEBSOCKET & ARBITRAGE ENGINE ---
+
+# --- SECURE WEBSOCKET & ARBITRAGE ENGINE ---
 
 @app.websocket("/ws/market")
-async def market_websocket(websocket: WebSocket):
+async def market_websocket(websocket: WebSocket, token: str = None):
+    # 🛡️ SECURITY: Reject if no token is provided
+    if not token:
+        print("⛔ WebSocket rejected: No token provided.")
+        await websocket.close(code=1008) # 1008 is standard for policy violation
+        return
+        
+    # 🛡️ SECURITY: Reject if token is invalid, expired, or forged
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        print("⛔ WebSocket rejected: Invalid token.")
+        await websocket.close(code=1008)
+        return
+
+    # If they pass the checks, let them in
     await websocket.accept()
-    print("✅ FRONTEND CONNECTED TO WEBSOCKET!")
+    print("✅ FRONTEND SECURELY CONNECTED TO WEBSOCKET!")
+    
     global bot_active, total_profit, trade_history, current_threshold, spread_buffer
     
     try:

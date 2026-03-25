@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -120,5 +120,26 @@
 
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
+  }
+
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  }
+
+  .glass-card {
+    @apply bg-[#0a0a0c]/80 backdrop-blur-2xl border border-white/10 shadow-2xl;
+  }
+
+  .text-shadow-glow {
+    text-shadow: 0 0 10px rgba(0, 255, 163, 0.5);
+  }
+
+  @keyframes background-shine {
+    from { background-position: 0 0; }
+    to { background-position: -200% 0; }
+  }
+
+  .animate-background-shine {
+    animation: background-shine 4s linear infinite;
   }
 }

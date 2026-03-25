@@ -1,9 +1,23 @@
-**/node_modules/
-.venv/
-venv/
+# Node & React
+node_modules/
+dist/
 .env
-*.sqlite3
+
+# Python & Backend
 __pycache__/
-*.pyc
-model/data/
-*.csv
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# Database (Don't push your user credentials to the cloud!)
+operator_vault.db
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Large Datasets (Git LFS)
+model/data/ETH_1min.csv
+model/data/coinbaseUSD_1-min_data.csv

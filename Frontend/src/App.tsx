@@ -1,27 +1,45 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+// IMPORT YOUR INDEX FILE HERE (Adjust the path if it's not in the same folder)
+import Index from './pages/Index';
 
-const queryClient = new QueryClient();
+// This is the gatekeeper. It checks for the token.
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('token');
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  if (!token) {
+    // No token? Kick them back to login.
+    return <Navigate to="/login" replace />;
+  }
+
+  // Has token? Let them through to the main index.
+  return <>{children}</>;
+};
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public Route */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected Route (Your main application) */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              {/* WE USE INDEX HERE INSTEAD OF DASHBOARD */}
+              <Index />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-all: If they type a weird URL, send them home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
 export default App;

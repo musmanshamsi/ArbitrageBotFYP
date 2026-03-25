@@ -23,12 +23,24 @@ class TradingUI:
         
         self.build_ui()
         
-        # Start the bot in a background thread
-        self.bot_thread = threading.Thread(target=self.bot_function, daemon=True)
+        # Start the bot in a background thread with the async wrapper
+        self.bot_thread = threading.Thread(target=self._run_bot_wrapper, daemon=True)
         self.bot_thread.start()
         
         # Start checking the queue for new messages
         self.update_logs()
+
+    def log(self, message):
+        """Standard log interface for the bot to call"""
+        self.write_log(message)
+
+    def _run_bot_wrapper(self):
+        """Internal wrapper to run the async bot loop in a thread"""
+        import asyncio
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.bot_function(self))
 
     def build_ui(self):
         self.root.configure(bg=self.theme["bg"])

@@ -21,7 +21,7 @@ class AIAgent:
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
 
-    def analyze_opportunity(self, binance_price, bybit_price, spread):
+    async def analyze_opportunity(self, binance_price, bybit_price, spread):
         """Analyzes the spread using Gemini, with an automatic fallback to Groq."""
         
         prompt = f"""
@@ -30,17 +30,20 @@ class AIAgent:
         Bybit Price: ${bybit_price}
         Spread: {spread}%
 
-        You are an expert crypto trading AI. Analyze this spread. Is it safe to trade?
-        Respond ONLY in valid JSON format exactly like this, with no extra text:
-        {{"decision": "EXECUTE" or "REJECT", "reason": "Short explanation under 10 words", "confidence": 0-100}}
+        Analyze this spread. Is it safe to trade?
+        Respond ONLY in valid JSON format:
+        {{"decision": "EXECUTE" or "REJECT", "reason": "Short explanation", "confidence": 0-100}}
         """
 
         # --- ATTEMPT 1: PRIMARY AI (GEMINI) ---
         if self.gemini_client:
             try:
-                # Upgraded to the newest Flash model
+                # Use the new async-compatible generate_content if available, 
+                # or just run the sync call in a thread if needed.
+                # The genai.Client is generally sync-only in some versions, 
+                # but we'll try the standard call and wrap if it hangs.
                 response = self.gemini_client.models.generate_content(
-                    model='gemini-2.5-flash', 
+                    model='gemini-2.0-flash', 
                     contents=prompt
                 )
                 return self._parse_json(response.text)
@@ -54,6 +57,7 @@ class AIAgent:
         # --- ATTEMPT 2: FALLBACK AI (GROQ) ---
         if self.groq_client:
             try:
+                # Groq has an async client but we'll stick to wrapping or direct for now
                 chat_completion = self.groq_client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model="llama-3.1-8b-instant", 

@@ -1,0 +1,67 @@
+# ArbPro Core: AI-Driven Arbitrage Trading System
+# Technology Stack Documentation for Thesis
+
+================================================================================
+SECTION 1: BACKEND ARCHITECTURE (PYTHON ECOSYSTEM)
+================================================================================
+
+1. CORE FRAMEWORKS:
+   - Python 3.10+: Main programming language.
+   - FastAPI: High-performance modern web framework for building APIs.
+   - Uvicorn: Lightning-fast ASGI server implementation for Python.
+   - Asyncio: Python's built-in library for writing single-threaded concurrent code using coroutines.
+
+2. TRADING & EXCHANGE CONNECTIVITY:
+   - CCXT (CryptoCurrency eXchange Trading Library): 
+     * Uses `ccxt.async_support` for non-blocking exchange interaction.
+     * Integrates with Binance and Bybit (Simulation mode) for cross-exchange trading.
+
+3. ARTIFICIAL INTELLIGENCE & LLM INTEGRATION:
+   - Google Generative AI (Gemini 2.0 Flash): Primary neural engine for trade approval and market sentiment analysis.
+   - Groq (LLaMA 3.1): Ultra-fast fallback LLM for high-availability trade decision making.
+   - Google Generative AI Python SDK: For seamless integration with the Gemini API.
+
+4. DATABASE & DATA INTEGRITY:
+   - SQLite 3: Lightweight, serverless relational database for storing trade ledgers and user data.
+   - Pydantic: Data validation and settings management using Python type annotations.
+   - Python-Dotenv: For managing sensitive API credentials and environment variables.
+
+5. SECURITY & AUTHENTICATION:
+   - JWT (JSON Web Tokens): For stateless session management and secure API access.
+   - Passlib (bcrypt): Industrial-strength password hashing for user accounts.
+   - FastAPI Security: Built-in OAuth2 with Password Flow (and Bearer token).
+
+================================================================================
+SECTION 2: FRONTEND ARCHITECTURE (REACT ECOSYSTEM)
+================================================================================
+
+1. CORE UI FOUNDATION:
+   - React 18: Frontend library for building the dynamic dashboard.
+   - TypeScript: Static typing for improved developer productivity and type safety.
+   - Vite: Next-generation frontend tooling for rapid development and HMR (Hot Module Replacement).
+
+2. STYLING & DESIGN SYSTEM:
+   - Tailwind CSS: Utility-first CSS framework for rapid UI development and responsive design.
+   - Shadcn/UI: Reusable accessible UI components built with Radix UI and Tailwind.
+   - Lucide React: Beautifully simple, consistent, and customizable icon library.
+   - Glassmorphism: Modern design aesthetic with semi-transparent, blurred backdrops and vibrant gradients.
+
+3. DATA VISUALIZATION:
+   - Recharts: Composable charting library built with React and D3.
+     * Dual Charting: Real-time Spread Analysis and Market Price Action (Candlesticks/Neural Flow).
+     * AreaChart & ComposedChart: For high-performance, responsive market data rendering.
+
+4. STATE MANAGEMENT & NETWORKING:
+   - WebSockets (Native API): Real-time, full-duplex communication with the backend for live price updates and logs.
+   - React Hooks (useState, useEffect, useRef): For local state management and side-effect handling.
+   - Fetch API: For RESTful communication with the FastAPI backend.
+   - React Router Dom: For seamless client-side navigation between Login and Dashboard.
+
+================================================================================
+SECTION 3: SYSTEM INTEGRATION & WORKFLOW
+================================================================================
+
+- Real-Time Market Feed: Backend fetches tickers via CCXT and broadcasts them to all connected frontend clients via WebSockets.
+- Neural Arbitration: AI Agent validates market opportunities before any trade execution to filter out high-latency or low-profit signals.
+- Cross-Exchange Ledger: Persistent logging of every trade, including exchange routes and net profit, stored in SQLite and visualized in real-time.
+- Responsive Design: Fully optimized for both desktop and mobile viewing with a mobile-first dashboard architecture.
