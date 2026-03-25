@@ -1,5 +1,5 @@
 ================================================================================
-                    AI ARBITRAGE BOT: PROJECT REPORT 🚀
+                    ARBITRAGE BOT: PROJECT REPORT 🚀
                      (From "Pixel" Interface to "Agentic" Logic)
 ================================================================================
 

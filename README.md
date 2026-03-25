@@ -1,4 +1,4 @@
-# AI Arbitrage Bot 🚀
+# Arbitrage Bot 🚀
 
 An advanced cryptocurrency arbitrage bot that leverages deep learning (GRU) and real-time market data to identify and execute profitable arbitrage opportunities across exchanges.
 

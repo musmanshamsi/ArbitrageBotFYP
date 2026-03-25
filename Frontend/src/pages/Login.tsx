@@ -93,19 +93,19 @@ const Login = () => {
     const isRegister = activeTab === 'register';
 
     return (
-        <div className="min-h-screen bg-[#020203] flex items-center justify-center p-4 font-sans text-gray-200 selection:bg-[#F3BA2F]/30 relative overflow-hidden">
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 font-sans text-gray-200 selection:bg-green-500/30 relative overflow-hidden">
             {/* Animated Background Elements */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#F3BA2F]/5 rounded-full blur-[120px] animate-pulse"></div>
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-green-500/5 rounded-full blur-[120px] animate-pulse"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
             
             <div className="glass-card p-10 rounded-[2rem] w-full max-w-md transition-all duration-500 relative z-10">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-[#F3BA2F]/50 to-transparent"></div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-green-500/50 to-transparent"></div>
 
                 <div className="flex flex-col items-center mb-10 text-center">
-                    <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mb-5 text-[#F3BA2F] shadow-[0_0_20px_rgba(243,186,47,0.15)] group hover:scale-110 transition-transform duration-300">
+                    <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mb-5 text-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)] group hover:scale-110 transition-transform duration-300">
                         <Command size={32} className="group-hover:rotate-12 transition-transform" />
                     </div>
-                    <h1 className="text-2xl font-black text-white tracking-widest uppercase text-shadow-glow">ArbPro Core</h1>
+                    <h1 className="text-2xl font-black text-white tracking-widest uppercase text-shadow-glow">Arbitrage Bot</h1>
                     <div className="flex items-center gap-2 mt-2">
                         <span className="h-px w-4 bg-gray-700"></span>
                         <p className="text-[10px] text-gray-400 uppercase tracking-[0.3em] font-bold">
@@ -119,14 +119,14 @@ const Login = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('signin')}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-2 ${!isRegister ? 'bg-[#F3BA2F] text-black shadow-[0_0_15px_rgba(243,186,47,0.3)]' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-2 ${!isRegister ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
                     >
                         <Shield size={14} /> Neural Sign In
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('register')}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-2 ${isRegister ? 'bg-[#F3BA2F] text-black shadow-[0_0_15px_rgba(243,186,47,0.3)]' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-2 ${isRegister ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
                     >
                         <UserPlus size={14} /> Register Node
                     </button>
@@ -137,15 +137,15 @@ const Login = () => {
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-2">Operator ID</label>
                         <div className="relative flex items-center group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <Mail className="text-gray-500 group-focus-within:text-[#F3BA2F] transition-colors" size={18} />
+                                <Mail className="text-gray-500 group-focus-within:text-green-500 transition-colors" size={18} />
                             </div>
                             <input
                                 type="email"
-                                placeholder="operator@arbpro.io"
+                                placeholder="operator@arbitragebot.io"
                                 value={email}
                                 required
                                 onChange={e => setEmail(e.target.value)}
-                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-[#F3BA2F]/50 focus:ring-1 focus:ring-[#F3BA2F]/50 transition-all placeholder:text-gray-700 font-medium"
+                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all placeholder:text-gray-700 font-medium"
                             />
                         </div>
                     </div>
@@ -154,7 +154,7 @@ const Login = () => {
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-2">Neural Key</label>
                         <div className="relative flex items-center group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <Lock className="text-gray-500 group-focus-within:text-[#F3BA2F] transition-colors" size={18} />
+                                <Lock className="text-gray-500 group-focus-within:text-green-500 transition-colors" size={18} />
                             </div>
                             <input
                                 type={showPassword ? "text" : "password"}
@@ -162,12 +162,12 @@ const Login = () => {
                                 value={password}
                                 required
                                 onChange={e => setPassword(e.target.value)}
-                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-14 text-sm text-white outline-none focus:border-[#F3BA2F]/50 focus:ring-1 focus:ring-[#F3BA2F]/50 transition-all placeholder:text-gray-700 font-medium"
+                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-14 text-sm text-white outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all placeholder:text-gray-700 font-medium"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 text-gray-500 hover:text-[#F3BA2F] transition-colors p-2"
+                                className="absolute right-4 text-gray-500 hover:text-green-500 transition-colors p-2"
                             >
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -211,7 +211,7 @@ const Login = () => {
                     <button
                         type="submit"
                         disabled={isLoading || (isRegister && (!isPasswordValid || !passwordsMatch))}
-                        className="w-full bg-gradient-to-r from-[#F3BA2F] to-[#E2B237] hover:from-[#F3BA2F]/90 hover:to-[#E2B237]/90 text-black font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed mt-8 group relative overflow-hidden shadow-[0_10px_30px_rgba(243,186,47,0.2)] active:scale-95"
+                        className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-500/90 hover:to-green-600/90 text-black font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed mt-8 group relative overflow-hidden shadow-[0_10px_30px_rgba(34,197,94,0.2)] active:scale-95"
                     >
                         <div className="absolute top-0 left-[-100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:left-[100%] transition-all duration-700"></div>
                         {isLoading ? (
@@ -229,7 +229,7 @@ const Login = () => {
                     
                     {!isRegister && (
                         <p className="text-center text-[10px] text-gray-600 font-bold uppercase tracking-[0.2em] pt-4">
-                            Secured by ArbPro Cryptographic Core
+                            Secured by Arbitrage Bot Cryptographic Core
                         </p>
                     )}
                 </form>

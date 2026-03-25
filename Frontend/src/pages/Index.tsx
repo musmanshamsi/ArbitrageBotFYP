@@ -12,7 +12,7 @@ const Index = () => {
   const [botRunning, setBotRunning] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([{ role: 'ai', text: 'ArbPro System Online. Monitoring cross-exchange liquidity.' }]);
+  const [messages, setMessages] = useState([{ role: 'ai', text: 'Arbitrage Bot System Online. Monitoring cross-exchange liquidity.' }]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [marketData, setMarketData] = useState<any>(null);
@@ -177,7 +177,7 @@ const Index = () => {
         <header className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-black tracking-tight text-white">ArbPro Core</h1>
+              <h1 className="text-3xl font-black tracking-tight text-white">Arbitrage Bot</h1>
               <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full border ${botRunning ? 'border-green-500 text-green-500 bg-green-500/10 animate-pulse' : 'border-gray-600 text-gray-500 bg-gray-800/50'}`}>
                 {marketData.status?.replace("_", " ") || "IDLE"}
               </span>

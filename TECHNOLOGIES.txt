@@ -1,4 +1,4 @@
-# ArbPro Core: AI-Driven Arbitrage Trading System
+# Arbitrage Bot: AI-Driven Arbitrage Trading System
 # Technology Stack Documentation for Thesis
 
 ================================================================================
