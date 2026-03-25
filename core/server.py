@@ -12,6 +12,7 @@ sys.path.append(parent_dir)
 
 from execution.trader import TradeExecutor
 from llm.ai_agent import AIAgent
+from core.database import save_trade
 
 # 1. Load the hidden keys securely
 load_dotenv(os.path.join(parent_dir, '.env'))
@@ -91,6 +92,9 @@ async def run_arbitrage_bot(ui_handle=None):
                             
                             # 🔥 EXECUTE THE TRADE (Async)
                             await trader.execute_arbitrage('BTC/USDT', 0.01)
+                            
+                            # Record the trade in the shared database
+                            save_trade("BINANCE ➔ BYBIT", round((spread_percent / 100) * binance_price * 0.01, 2))
                             
                             log_message("⏳ Trade complete. Cooldown for 15 seconds...\n")
                             await asyncio.sleep(15)

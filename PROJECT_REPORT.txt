@@ -1,90 +1,168 @@
 ================================================================================
-                    ARBITRAGE BOT: PROJECT REPORT 🚀
-                     (From "Pixel" Interface to "Agentic" Logic)
+                    ARBPRO - AI ARBITRAGE BOT: PROJECT STATE REPORT
+                         Final Year Project (FYP) | March 25, 2026
+                              v4.0 - Post-Cleanup Architecture
 ================================================================================
 
 1. PROJECT OVERVIEW
 -------------------
-The AI Arbitrage Bot has evolved into an "Agentic" high-frequency trading 
-system. It no longer relies solely on historical patterns but now utilizes 
-Large Language Models (LLMs) to verify market conditions in real-time before 
-executing capital-at-risk trades between Binance and Bybit.
-
-2. THE "PIXEL" INTERFACE (VISUALS & UX)
----------------------------------------
-The React + Vite dashboard serves as the Mission Control Center:
-- Secure Session Control: Integrated with a custom "Local Operator Vault" 
-  for authentication.
-- Live Telemetry: Streams real-time ticker data, AI confidence scores, 
-  and system logs directly from the Python core via WebSockets.
-- Safety Dashboard: Visual indicators for AI cooldowns, execution 
-  thresholds, and connection health.
-
-3. BACKEND ARCHITECTURE (INFRASTRUCTURE)
-----------------------------------------
-The system operates on a dual-engine multi-threaded architecture:
-- API Gateway (`api.py`): A FastAPI-based secure vault managing 
-  operator credentials and session tokens with 32-byte hex encryption.
-- Execution Core (`main.py`): Orchestrates the parallel running of the 
-  web server and the trading engine.
-- Persistent Vault: Uses `operator_vault.db` for security and `trades.db` 
-  for fiscal transparency.
-
-4. THE "AGENTIC" LOGIC (INTELLIGENT DECISION MAKING)
-----------------------------------------------------
-The "Brain" has been upgraded from a static GRU model to a Multi-AI Agent:
-- Primary Intelligence: Google Gemini (2.5-Flash) analyzes live price spreads
-  and exchange conditions to provide an "EXECUTE" or "REJECT" verdict.
-- Fail-Safe Fallback: If Gemini hits rate limits or latency issues, the 
-  system automatically switches to Groq (LLaMA 3.1) for a secondary opinion.
-- Confidence Scoring: The AI provides a 0-100 confidence level, which acts 
-  as the final gate before order submission.
-
-5. REAL-WORLD EXECUTION ENGINE
-------------------------------
-- Real Market Orders: The bot performs actual "Market Buy" executions on 
-  the Binance Testnet using the CCXT library.
-- Hybrid Simulation: To counter network restrictions, the system employs 
-  a "Hybrid Leg" strategy—executing real trades on Binance while 
-  simulating the Bybit leg when API connectivity is blocked.
-- Trade Persistence: Every successful cycle is logged to a local SQLite 
-  database, capturing order IDs, average prices, and net costs.
-
-6. RISK & STABILITY
--------------------
-- Automatic Cooldowns: Implements a 60-second "AI thinking" cooldown to 
-  prevent API exhaustion and "over-trading" in volatile markets.
-- Error Trapping: Advanced handlers for "429 Quota" errors and "API Key" 
-  failures, ensuring the bot aborts safely rather than crashing.
-
-7. MODEL STATUS & SYSTEM ANALYSIS
----------------------------------
-- [COMPLETED] Multi-AI Agent: Gemini + Groq fallback system is fully LIVE.
-- [COMPLETED] Local Operator Vault: Secure registration/login API is active.
-- [COMPLETED] Binance Real Execution: Market order logic is operational.
-- [IN PROCESS] Live Telemetry: Refinement of the WebSocket sync between 
-  `main.py` and the React frontend.
-- [PENDING] Portfolio Scaling: Moving from static 0.01 BTC trades to 
-  percentage-based position sizing.
-
-STRENGTHS:
-- High Intelligence: Dual-LLM confirmation minimizes "false positive" trades.
-- Robust Auth: Hashed password security and unique session tokens.
-- Safety First: Comprehensive testnet sandboxing and error-recovery logic.
-
-WEAKNESSES:
-- API Dependency: Highly reliant on external AI providers (Gemini/Groq).
-- Initial Friction: Requires valid API keys for execution (currently 
-  being configured).
-
-8. CONCLUSION
--------------
-The AI Arbitrage Bot represents the next generation of algorithmic trading, 
-where deep learning is augmented by LLM reasoning. By combining real 
-execution capabilities with a secure operator interface, the system is 
-well-positioned for transitioning from a sandbox environment to live 
-market participation.
+ArbPro is an AI-powered cryptocurrency arbitrage bot that detects and exploits
+price discrepancies between Binance and Bybit exchanges on the BTC/USDT pair.
+The system runs entirely on localhost and consists of a Python FastAPI backend
+with an AI decision engine, and a React/TypeScript web dashboard.
 
 ================================================================================
-REPORT END | Updated on: 2026-03-24 (v2.0 - Agentic Update)
+
+2. ARCHITECTURE OVERVIEW
+------------------------
+
+  [A] BACKEND (Python / FastAPI)
+      - api.py              : SOLE active REST + WebSocket API (port 8000)
+      - main.py             : Entry point; starts API thread, keeps alive
+      - predictor.py        : GRU neural network inference (PyTorch)
+      - train_gru.py        : Offline model training script
+      - core/server.py      : Legacy bot loop (no longer launched by main.py)
+      - core/database.py    : SQLite trade persistence layer
+      - core/risk_engine.py : Risk management logic
+      - execution/trader.py : CCXT trade executor (Binance + Bybit testnet)
+      - llm/ai_agent.py     : LLM decision engine (Gemini + Groq fallback)
+      - llm/chatbot.py      : Secondary LLM chatbot interface
+
+  [B] FRONTEND (React 18 / TypeScript / Vite)
+      - frontend/           : Standardized to lowercase (single directory)
+      - pages/Login.tsx              : Auth screen
+      - pages/Index.tsx              : Main dashboard (WebSocket consumer)
+      - components/CandleChart.tsx   : Live candlestick chart
+      - components/SpreadChart.tsx   : Spread visualization
+      - components/AIAssistant.tsx   : LLM message feed
+      - components/MetricCard.tsx    : KPI tiles
+      - components/Settings.tsx      : Threshold slider + bot toggle
+      - components/TradeApprovalModal.tsx : Manual trade approval (LIVE)
+
+  [C] DATA & MODELS
+      - arbitrage.db        : Trade history (SQLite)
+      - operator_vault.db   : User accounts (SQLite)
+      - gru_model.pth       : Trained GRU model weights (~97KB)
+      - scaler_params.npy   : Min-max scaler for GRU input
+      - model/data/         : 20+ historical coin CSV datasets
+
+================================================================================
+
+3. TECHNOLOGY STACK
+-------------------
+  Backend Framework   : FastAPI + Uvicorn
+  Async Runtime       : asyncio (Python)
+  Exchange Library    : CCXT (async_support)
+  AI Predictor        : PyTorch (GRU - 2 layers, hidden_dim=50)
+  LLM Engine          : Google Gemini 2.0 Flash (primary)
+                        Groq / LLaMA 3.1 8B Instant (fallback)
+  Auth / Security     : bcrypt (passlib) + JWT (python-jose) + .env secrets
+  Database            : SQLite (2 separate databases)
+  Frontend Framework  : React 18 + TypeScript + Vite
+  UI Components       : Radix UI + TailwindCSS + shadcn/ui
+  Charts              : Recharts
+  Routing             : React Router v6
+
+================================================================================
+
+4. CHANGES MADE (v3.0 -> v4.0)
+-------------------------------
+
+  PHASE 1: Environment & Architecture Cleanup
+  -------------------------------------------
+  [DONE] Killed duplicate node/python processes
+  [DONE] requirements.txt fully rewritten with all active dependencies
+         (fastapi, uvicorn, torch, passlib, python-jose, google-genai,
+          groq, python-dotenv, ccxt, pandas, numpy, scikit-learn, etc.)
+  [DONE] Removed asyncio.run(run_arbitrage_bot()) from main.py
+         -> WebSocket in api.py is now the single trading engine loop
+  [DONE] Merged JWT auth logic from main_api.py into api.py
+         -> /api/login now returns a signed JWT token
+         -> /api/token kept as fallback for frontend compatibility
+         -> /toggle_bot, /api/threshold, /api/history now JWT-protected
+         -> WebSocket validates JWT before accepting connection
+  [DONE] main_api.py permanently deleted (was dead/conflicting code)
+  [DONE] frontend/ directory standardized to lowercase
+
+  PHASE 2: Security & Live Connectivity
+  --------------------------------------------
+  [DONE] JWT_SECRET_KEY moved from hardcoded string to .env variable
+         -> Server raises RuntimeError at startup if key is missing
+  [DONE] Wallet balances (binance_bal, bybit_bal) now fetched live from
+         CCXT testnet APIs each WebSocket tick (3s timeout failsafe)
+         -> Dashboard now reflects true exchange balances, not $1500 mock
+  [DONE] Bybit execution leg replaced: fake "simulated success" removed
+         -> Now calls: bybit.create_market_sell_order(symbol, amount)
+  [DONE] Bybit HTTP proxy support added to CCXT instantiation in trader.py
+         -> Reads HTTP_PROXY / HTTPS_PROXY from .env and auto-injects
+         -> Configured proxy: http://127.0.0.1:1080 (configurable)
+
+  PHASE 3: UI/UX Wiring
+  ----------------------
+  [DONE] POST /api/trade/approve endpoint added (JWT-protected)
+         -> Accepts { "decision": "APPROVE" | "REJECT" }
+         -> Signals waiting WebSocket loop via asyncio.Event
+  [DONE] Human-in-the-loop execution flow implemented:
+         1. AI detects opportunity and recommends EXECUTE
+         2. Backend broadcasts { type: "pending_trade", trade: {...} }
+         3. Bot PAUSES and awaits operator decision (30s timeout)
+         4. On APPROVE: real trade executes + logged to DB
+         5. On REJECT or TIMEOUT: trade cancelled, AI chat notified
+  [DONE] TradeApprovalModal fully wired in React dashboard (Index.tsx)
+         -> Auto-opens on pending_trade WebSocket event
+         -> "Approve Trade" button calls POST /api/trade/approve APPROVE
+         -> "Reject" button calls POST /api/trade/approve REJECT
+  [DONE] Bybit Oracle display bug fixed (was reading marketData.kraken,
+         now correctly reads marketData.bybit)
+
+================================================================================
+
+5. CURRENT SYSTEM STATUS (March 25, 2026 ~23:00 PKT)
+------------------------------------------------------
+  python main.py     -> Running (~5 min) on port 8000
+  frontend/          -> Ready for `npm run dev` (single, standardized dir)
+
+================================================================================
+
+6. WHAT IS CURRENTLY WORKING
+-----------------------------
+  [OK] FastAPI backend starts on port 8000 (single loop, clean)
+  [OK] JWT auth: register, login, token validation on all endpoints
+  [OK] React dashboard connects via JWT-validated WebSocket
+  [OK] GRU model loads and generates spread predictions
+  [OK] Gemini 2.0 Flash LLM makes trade decisions (Groq fallback active)
+  [OK] Binance testnet price fetching (real, live)
+  [OK] Live USDT balances fetched from Binance testnet each tick
+  [OK] TradeApprovalModal auto-displays on opportunity detection
+  [OK] Human approve/reject controls the actual trade execution
+  [OK] Trades logged to arbitrage.db on every confirmed execution
+  [OK] Spread chart and candlestick chart render correctly
+  [OK] Bot toggle and threshold slider work end-to-end
+
+================================================================================
+
+7. KNOWN REMAINING LIMITATIONS
+-------------------------------
+  1. BYBIT CONNECTIVITY: Bybit calls still depend on an HTTP proxy being
+     active at 127.0.0.1:1080. Without it, Bybit balance/trade will fail
+     gracefully but won't execute. Configure .env with a working proxy.
+
+  2. BYBIT PRICE: The WebSocket still simulates Bybit price via a fixed
+     fluctuation formula (not fetching live Bybit ticker). Actual spread
+     requires a real Bybit price feed to be functional.
+
+  3. CORE/SERVER.PY: Still exists as a legacy file. It is no longer
+     launched by main.py but has not been deleted. Can be archived.
+
+================================================================================
+
+8. RECOMMENDED NEXT STEPS
+--------------------------
+  1. [HIGH]  Configure a working proxy in .env (or VPN) for Bybit access
+  2. [HIGH]  Fetch live Bybit ticker price in WebSocket (replace simulation)
+  3. [MED]   Archive/delete core/server.py legacy file
+  4. [FUTURE] Multi-tenant upgrade: per-user JWT + AES-256 key vault
+
+================================================================================
+REPORT END | v4.0 - Phases 1/2/3 Complete | 2026-03-25
 ================================================================================

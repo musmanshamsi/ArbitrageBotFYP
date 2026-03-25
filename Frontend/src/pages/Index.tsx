@@ -4,6 +4,7 @@ import { LayoutDashboard, Activity, Database, MessageSquare, Send, Bot as BotIco
 import { Button } from "@/components/ui/button";
 import SpreadChart from "@/components/SpreadChart";
 import CandleChart from "@/components/CandleChart";
+import TradeApprovalModal from "@/components/TradeApprovalModal";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -23,6 +24,10 @@ const Index = () => {
 
   const [binanceBalance, setBinanceBalance] = useState(0.00);
   const [bybitBalance, setBybitBalance] = useState(0.00);
+
+  // Trade Approval Modal State
+  const [pendingTrade, setPendingTrade] = useState<any>(null);
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
 
   const [threshold, setThreshold] = useState(0.08);
 
@@ -60,6 +65,10 @@ const Index = () => {
 
       if (data.type === "ai_msg") {
         setMessages(prev => [...prev, { role: 'ai', text: data.text }]);
+      } else if (data.type === "pending_trade") {
+        // Show manual approval modal
+        setPendingTrade(data.trade);
+        setApprovalModalOpen(true);
       } else if (data.type === "trade") {
         setTradeLog(prev => [data.trade, ...prev]);
         if (data.raw_profit !== undefined) setTotalProfit(p => p + data.raw_profit);
@@ -139,6 +148,24 @@ const Index = () => {
     }
   };
 
+  const handleTradeApproval = async (approved: boolean) => {
+    const token = localStorage.getItem('token');
+    setApprovalModalOpen(false);
+    setPendingTrade(null);
+    try {
+      await fetch("http://127.0.0.1:8000/api/trade/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ decision: approved ? "APPROVE" : "REJECT" }),
+      });
+    } catch (err) {
+      console.error("Failed to submit trade decision", err);
+    }
+  };
+
   const handleSend = () => {
     if (!input.trim()) return;
     setMessages(prev => [...prev, { role: 'user', text: input }]);
@@ -159,6 +186,21 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#050505] text-gray-200 overflow-hidden font-sans selection:bg-green-500/30">
+
+      {/* TRADE APPROVAL MODAL */}
+      {pendingTrade && (
+        <TradeApprovalModal
+          isOpen={approvalModalOpen}
+          onApprove={() => handleTradeApproval(true)}
+          onReject={() => handleTradeApproval(false)}
+          buyExchange={pendingTrade.buyExchange}
+          sellExchange={pendingTrade.sellExchange}
+          buyPrice={pendingTrade.buyPrice}
+          sellPrice={pendingTrade.sellPrice}
+          spread={pendingTrade.spread}
+          predictedProfit={pendingTrade.predictedProfit}
+        />
+      )}
 
       {/* LEFT SIDEBAR */}
       <aside className="w-20 border-r border-white/5 bg-[#0a0a0c] flex flex-col items-center py-6 gap-8 z-10">
@@ -224,7 +266,7 @@ const Index = () => {
             </div>
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Bybit Oracle</p>
-              <p className="text-xl font-mono text-white font-black tracking-tighter">${marketData.kraken?.toLocaleString() || 0}</p>
+              <p className="text-xl font-mono text-white font-black tracking-tighter">${marketData.bybit?.toLocaleString() || 0}</p>
             </div>
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Current Spread</p>

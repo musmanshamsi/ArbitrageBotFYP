@@ -9,14 +9,28 @@ class TradeExecutor:
             'apiKey': binance_api,
             'secret': binance_secret,
             'enableRateLimit': True,
+            'options': {
+                'adjustForTimeDifference': True,
+                'recvWindow': 10000
+            }
         })
         
         # Initialize Bybit
-        self.bybit = ccxt.bybit({
+        bybit_opts = {
             'apiKey': bybit_api,
             'secret': bybit_secret,
             'enableRateLimit': True,
-        })
+        }
+        
+        # Conditionally add proxy configuration for Bybit if defined in env to bypass ISP block
+        bybit_proxy = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        if bybit_proxy:
+            bybit_opts['proxies'] = {
+                'http': bybit_proxy,
+                'https': bybit_proxy,
+            }
+
+        self.bybit = ccxt.bybit(bybit_opts)
         
         # Turn on Testnet mode for BOTH
         if testnet:
@@ -73,14 +87,17 @@ class TradeExecutor:
             print("❌ Binance trade failed. Aborting arbitrage.")
             return
             
-        # 2. Simulated Trade on Bybit (e.g., Selling High)
+        # 2. Real Trade on Bybit (e.g., Selling High) - Now utilizing the proxy
         print("🔴 Leg 2: Attempting SELL on Bybit...")
         try:
-            # The bot tries to hit Bybit, but we know your ISP blocks it
-            await self.bybit.fetch_balance() # This will trigger the network error
+            # Replaced fetch_balance with the real sell execution
+            bybit_order = await self.bybit.create_market_sell_order(symbol, amount)
+            print("✅ SUCCESS! Sold Phase 2 on Bybit.")
+            print(f"📋 Order ID: {bybit_order['id']}")
+            print(f"💵 Average Price: {bybit_order.get('average', bybit_order.get('price', 'N/A'))}")
         except Exception as e:
-            print(f"⚠️ Bybit API Blocked by Network. Engaging Simulator...")
-            print(f"✅ SIMULATED SUCCESS! Sold {amount} {symbol} on Bybit.")
-            print(f"📋 Simulated Order ID: BYB-SIM-{binance_order['id']}")
+            print(f"❌ Bybit Network/Execution Failed: {str(e)}")
+            print("⚠️ NOTE: Arb is broken since Leg 1 executed but Leg 2 failed.")
+            return
             
         print("\n🎉 ARBITRAGE CYCLE COMPLETE! 🎉\n")

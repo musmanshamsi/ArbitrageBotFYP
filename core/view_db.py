@@ -2,7 +2,7 @@ import sqlite3
 
 def view_trades():
     try:
-        conn = sqlite3.connect('trades.db')
+        conn = sqlite3.connect('arbitrage.db')
         cursor = conn.cursor()
         
         print("\n--- DATABASE: TRADES LOG ---")

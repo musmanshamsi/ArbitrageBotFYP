@@ -1,8 +1,15 @@
+fastapi
+uvicorn
+torch
+passlib
+python-jose
+google-genai
+groq
+python-dotenv
 ccxt
 pandas
 numpy
 scikit-learn
-tensorflow
 joblib
 matplotlib
 requests

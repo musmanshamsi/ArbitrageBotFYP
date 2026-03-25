@@ -22,11 +22,12 @@ if __name__ == "__main__":
     time.sleep(1.5)
     print("✅ LOCAL VAULT ONLINE (Port 8080)")
 
-    # 2. Start the Arbitrage Bot (Async)
-    print("🤖 STARTING ARBITRAGE ENGINE...")
+    # 2. The Arbitrage Engine is now hosted within the API WebSocket
+    print("🤖 BACKEND & ARBITRAGE ENGINE RUNNING ON PORT 8000...")
     try:
-        import asyncio
-        asyncio.run(run_arbitrage_bot())
+        # Keep the main thread alive so the daemon API thread can run
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n🛑 System shutdown requested by Operator.")
         sys.exit(0)
