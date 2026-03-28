@@ -259,33 +259,58 @@ async def market_websocket(websocket: WebSocket, token: str = None):
             try:
                 # 1. Fetch market data with a strict timeout
                 binance_price = 0.0
+                fetch_success = True
                 try:
-                    # trader.binance is now async
-                    binance_ticker = await asyncio.wait_for(trader.binance.fetch_ticker(symbol), timeout=3.0)
+                    binance_ticker = await asyncio.wait_for(trader.binance.fetch_ticker(symbol), timeout=3.5)
                     binance_price = binance_ticker['last']
+                except asyncio.TimeoutError:
+                    print(f"⚠️ Market Fetch Timeout (3.5s) on Binance. Using simulated data.")
+                    fetch_success = False
                 except Exception as e:
-                    print(f"⚠️ Market Fetch Error: {e}")
-                    binance_price = 65000.0 + secrets.randbelow(100)
+                    print(f"⚠️ Market Fetch Error ({type(e).__name__}): {e}")
+                    fetch_success = False
+
+                if not fetch_success:
+                    # Provide a realistic mock price if the API is down/blocked
+                    binance_price = 65000.0 + secrets.randbelow(500)
                     
                 # Fetch Real Balances
                 bin_balance = 0.0
                 byb_balance = 0.0
                 try:
-                    bin_res = await asyncio.wait_for(trader.binance.fetch_balance(), timeout=3.0)
+                    # Use a slightly longer timeout for balance if needed, or skip if already failing
+                    bin_res = await asyncio.wait_for(trader.binance.fetch_balance(), timeout=2.5)
                     bin_balance = float(bin_res.get('USDT', {}).get('free', 0.0))
                 except Exception:
+                    # Silently fail for balances to keep scanning prices
                     pass
 
                 try:
-                    # Depending on proxy, this might still fail if blocked, but we won't crash the loop
-                    byb_res = await asyncio.wait_for(trader.bybit.fetch_balance(), timeout=3.0)
+                    # Bybit often needs a proxy, so it's more likely to hit native timeouts
+                    byb_res = await asyncio.wait_for(trader.bybit.fetch_balance(), timeout=2.5)
                     byb_balance = float(byb_res.get('USDT', {}).get('free', 0.0))
                 except Exception:
                     pass
                 
-                # Simulate Bybit Price
-                fluctuation = 0.012 
-                bybit_price = binance_price * (1 + (fluctuation if bot_active else 0.0005)) 
+                # 2. Fetch Bybit Price (Real)
+                bybit_price = 0.0
+                bybit_fetch_success = True
+                try:
+                    # Bybit often needs a proxy, handled by trader.bybit
+                    bybit_ticker = await asyncio.wait_for(trader.bybit.fetch_ticker(symbol), timeout=3.5)
+                    bybit_price = bybit_ticker['last']
+                except asyncio.TimeoutError:
+                    print(f"⚠️ Market Fetch Timeout (3.5s) on Bybit. Using simulated fallback.")
+                    bybit_fetch_success = False
+                except Exception as e:
+                    print(f"⚠️ Bybit Market Fetch Error: {e}")
+                    bybit_fetch_success = False
+
+                if not bybit_fetch_success:
+                    # Fallback to simulation if Bybit API is unreachable
+                    fluctuation = 0.012 if bot_active else 0.0005
+                    bybit_price = binance_price * (1 + fluctuation)
+                
                 spread = ((bybit_price - binance_price) / binance_price) * 100
                 
                 # Dynamic Profitability Analysis
@@ -294,7 +319,7 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                 
                 direction = "BINANCE ➔ BYBIT"
 
-                # 2. AI Prediction
+                # 3. AI Prediction
                 spread_buffer.append(spread)
                 if len(spread_buffer) > 10: spread_buffer.pop(0)
                 
@@ -305,7 +330,7 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                     except:
                         ai_prediction = 0.0
 
-                # 3. Opportunity logic & Execution
+                # 4. Opportunity logic & Execution
                 opportunity = (spread >= current_threshold) and (ai_prediction >= current_threshold)
                 
                 if bot_active and opportunity:

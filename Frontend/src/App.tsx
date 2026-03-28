@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 // IMPORT YOUR INDEX FILE HERE (Adjust the path if it's not in the same folder)
-import Index from './pages/Index';
+import Dashboard from './pages/Dashboard';
 import Blog from './pages/Blog';
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -32,8 +32,7 @@ const App = () => {
             path="/"
             element={
               <ProtectedRoute>
-                {/* WE USE INDEX HERE INSTEAD OF DASHBOARD */}
-                <Index />
+                <Dashboard />
               </ProtectedRoute>
             }
           />

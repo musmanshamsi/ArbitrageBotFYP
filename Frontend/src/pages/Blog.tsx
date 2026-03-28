@@ -163,7 +163,6 @@ const Blog = () => {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 overflow-hidden flex flex-col relative">
-        <div className="absolute top-0 left-0 bg-red-500 text-white z-[100] p-2 text-xs">BLOG RENDERED</div>
         
         {/* TOP BAR / NAVIGATION */}
         <header className="px-8 py-5 border-b border-white/5 bg-[#0a0a0c]/80 backdrop-blur-md flex justify-between items-center z-20">

@@ -30,15 +30,15 @@ class Predictor:
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
             self.model.eval()
-            print("✅ PyTorch Model Loaded.")
+            print("[OK] PyTorch Model Loaded.")
         else:
-            print(f"❌ Error: {model_path} not found!")
+            print(f"[ERROR]: {model_path} not found!")
 
         if os.path.exists(scaler_path):
             params = np.load(scaler_path)
             self.min_val = params[0]
             self.max_val = params[1]
-            print("✅ Scaler Loaded.")
+            print("[OK] Scaler Loaded.")
 
     def predict(self, data_sequence):
         if self.model is None or self.min_val is None:

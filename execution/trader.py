@@ -9,6 +9,7 @@ class TradeExecutor:
             'apiKey': binance_api,
             'secret': binance_secret,
             'enableRateLimit': True,
+            'proxies': {},  # Force no proxy for Binance to avoid local stalls
             'options': {
                 'adjustForTimeDifference': True,
                 'recvWindow': 10000
