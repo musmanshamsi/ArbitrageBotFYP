@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Activity, Database, MessageSquare, Send, Bot as BotIcon, TrendingUp, Power, AlertCircle, ChevronRight, SlidersHorizontal, LogOut } from "lucide-react";
+import { LayoutDashboard, Activity, Database, MessageSquare, Send, Bot as BotIcon, TrendingUp, Power, AlertCircle, ChevronRight, SlidersHorizontal, LogOut, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import SpreadChart from "@/components/SpreadChart";
 import CandleChart from "@/components/CandleChart";
 import TradeApprovalModal from "@/components/TradeApprovalModal";
@@ -204,13 +205,42 @@ const Index = () => {
 
       {/* LEFT SIDEBAR */}
       <aside className="w-20 border-r border-white/5 bg-[#0a0a0c] flex flex-col items-center py-6 gap-8 z-10">
-        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center font-black text-xl text-black shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:scale-105 transition-transform cursor-pointer">A</div>
-        <nav className="flex flex-col gap-6 text-gray-600">
-          <button className="p-3 text-green-500 bg-green-500/10 rounded-xl"><LayoutDashboard size={20} /></button>
-          <button className="p-3 hover:text-gray-300 transition-colors"><Activity size={20} /></button>
-          <button className="p-3 hover:text-gray-300 transition-colors"><Database size={20} /></button>
-        </nav>
-      </aside>
+          <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center font-black text-xl text-black shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:scale-105 transition-transform cursor-pointer">A</div>
+          <nav className="flex flex-col gap-6 text-gray-600">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-3 text-green-500 bg-green-500/10 rounded-xl"><LayoutDashboard size={20} /></button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Dashboard: Live Market Monitoring</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-3 hover:text-gray-300 transition-colors"><Activity size={20} /></button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Activity: Transaction & Signal Logs</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="p-3 hover:text-gray-300 transition-colors"><Database size={20} /></button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Vault: Connected Exchange Balances</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={() => navigate("/blog")} 
+                  className="p-3 hover:text-green-500 hover:bg-green-500/10 rounded-xl transition-all"
+                >
+                  <BookOpen size={20} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Knowledge Base: Strategy & Guides</TooltipContent>
+            </Tooltip>
+          </nav>
+        </aside>
 
       {/* MAIN CONTENT */}
       <main className="flex-1 p-8 overflow-y-auto flex flex-col gap-8 scrollbar-hide">
@@ -231,14 +261,27 @@ const Index = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button onClick={toggleBot} className={`h-12 px-6 font-bold tracking-wide transition-all duration-300 rounded-xl flex items-center gap-2 ${botRunning ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-green-500 text-black hover:bg-green-400 shadow-[0_0_20px_rgba(34,197,94,0.2)]"}`}>
-              <Power size={18} />
-              {botRunning ? "HALT TRADING" : "ENGAGE ALGORITHM"}
-            </Button>
-            <Button onClick={handleLogout} className="h-12 px-4 bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/50 rounded-xl flex items-center gap-2 transition-all">
-              <LogOut size={18} />
-              Logout
-            </Button>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={toggleBot} className={`h-12 px-6 font-bold tracking-wide transition-all duration-300 rounded-xl flex items-center gap-2 ${botRunning ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-green-500 text-black hover:bg-green-400 shadow-[0_0_20px_rgba(34,197,94,0.2)]"}`}>
+                    <Power size={18} />
+                    {botRunning ? "HALT TRADING" : "ENGAGE ALGORITHM"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {botRunning ? "Immediate stop for all bot operations" : "Start the automated arbitrage engine"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={handleLogout} className="h-12 px-4 bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/50 rounded-xl flex items-center gap-2 transition-all">
+                    <LogOut size={18} />
+                    Logout
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Safely terminate session</TooltipContent>
+              </Tooltip>
           </div>
         </header>
 
