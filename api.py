@@ -22,6 +22,7 @@ from llm.market_analyst import MarketAnalyst
 from llm.strategy_advisor import StrategyAdvisor
 from execution.trader import TradeExecutor
 from core.database import DatabaseCore
+from core.risk_engine import RiskEngine
 
 import logging
 logger = logging.getLogger(__name__)
@@ -116,6 +117,7 @@ chatbot = ChatBot()
 db_core = DatabaseCore(db_path=TRADES_DB)
 market_analyst = MarketAnalyst(api_key=os.getenv("GEMINI_API_KEY"))
 strategy_advisor = StrategyAdvisor(db_path=TRADES_DB, api_key=os.getenv("GEMINI_API_KEY"))
+risk_engine = RiskEngine(db_path=TRADES_DB)
 
 # Initialize Trader
 trader = TradeExecutor(
@@ -409,6 +411,23 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                             ai_decision = ai_analysis.get("decision", "REJECT")
                             reason = ai_analysis.get("reasoning", "No reason provided")
                             conf = ai_analysis.get("confidence", 0)
+
+                            # --- TIER 5: THE RISK ENGINE (FINAL GATEKEEPER) ---
+                            risk_assessment = risk_engine.validate_and_size_trade(ai_decision, conf)
+
+                            if not risk_assessment["approved"]:
+                                halt_reason = risk_assessment["reason"]
+                                logger.warning(f"Trade Halted by Risk Engine: {halt_reason}")
+                                await websocket.send_json({"type": "ai_msg", "text": f"\ud83d\udee1\ufe0f RISK VETO: {halt_reason}. Trade cancelled."})
+                                # Auto-stop bot if circuit breaker tripped
+                                if halt_reason in ["Daily Drawdown Exceeded", "Consecutive Loss Streak"]:
+                                    bot_active = False
+                                    await websocket.send_json({"type": "ai_msg", "text": "\ud83d\udea8 CIRCUIT BREAKER TRIPPED. Bot status set to INACTIVE for safety."})
+                                continue
+
+                            # Update trade_size with Kelly-optimal sizing
+                            trade_size = risk_assessment["size"]
+                            logger.info(f"Risk Engine approved trade. Position Size: {trade_size}")
                         except Exception as e:
                             logger.error(f"AI Agent call failed: {e}")
                             ai_decision = "REJECT"
