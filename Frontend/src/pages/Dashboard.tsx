@@ -143,11 +143,11 @@ const Dashboard = () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}` 
         },
-        body: JSON.stringify({ question: userMsg }),
+        body: JSON.stringify({ query: userMsg }),
       });
       
       const data = await res.json();
-      if (data.status === "success") {
+      if (data.response) {
         setMessages(prev => [...prev.slice(-49), { role: 'ai', text: data.response }]);
       } else {
         setMessages(prev => [...prev, { role: 'ai', text: "The analyst is currently tied up with market data. Please try again soon." }]);
