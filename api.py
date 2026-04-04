@@ -17,7 +17,14 @@ from passlib.context import CryptContext
 # --- AI & TRADING IMPORTS ---
 from predictor import Predictor
 from llm.ai_agent import AIAgent
+from llm.chatbot import ChatBot
+from llm.market_analyst import MarketAnalyst
+from llm.strategy_advisor import StrategyAdvisor
 from execution.trader import TradeExecutor
+from core.database import DatabaseCore
+
+import logging
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -104,7 +111,11 @@ SLIPPAGE_RATE = 0.0005  # 0.05% (Estimated)
 # Initialize AI Brains
 ai_brain = Predictor()
 ai_brain.load(model_path='gru_model.pth', scaler_path='scaler_params.npy')
-ai_agent = AIAgent()
+ai_agent = AIAgent(api_key=os.getenv("GEMINI_API_KEY"))
+chatbot = ChatBot()
+db_core = DatabaseCore(db_path=TRADES_DB)
+market_analyst = MarketAnalyst(api_key=os.getenv("GEMINI_API_KEY"))
+strategy_advisor = StrategyAdvisor(db_path=TRADES_DB, api_key=os.getenv("GEMINI_API_KEY"))
 
 # Initialize Trader
 trader = TradeExecutor(
@@ -139,6 +150,12 @@ trade_history, total_profit = load_history()
 class UserAuth(BaseModel):
     username: str
     password: str
+
+class ChatRequest(BaseModel):
+    query: str
+
+class ExplainRequest(BaseModel):
+    trade_id: int
 
 @app.post("/api/register")
 async def register(user: UserAuth):
@@ -213,6 +230,50 @@ async def approve_trade(payload: dict, current_user: str = Depends(get_current_u
     _approval_event.set()  # Unblock the waiting WebSocket loop
     print(f"\ud83d\udd10 Operator '{current_user}' {decision}D the pending trade.")
     return {"status": "success", "decision": decision}
+
+# --- NEW V7.0 LLM ENDPOINTS ---
+
+@app.get("/api/market-analysis")
+async def get_market_analysis(current_user: str = Depends(get_current_user)):
+    """Tier 2: Fetches broad market regime and sentiment dynamically."""
+    try:
+        # Fetch real OHLCV data from Binance (BTC/USDT, 1h timeframe, last 50 candles)
+        #Close prices are at index 4
+        ohlcv = await trader.binance.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
+        recent_prices = [candle[4] for candle in ohlcv]
+
+        analysis = await market_analyst.analyze_regime(recent_prices)
+        
+        # Save analysis to DB cache
+        db_core.cache_market_analysis(analysis)
+        return analysis
+    except Exception as e:
+        logger.error(f"Market Analysis Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.post("/api/chat")
+async def chat_endpoint(request: ChatRequest, current_user: str = Depends(get_current_user)):
+    """Tier 4: Context-aware Frontend Chat Interface."""
+    try:
+        # Fetch current market state so the bot knows what's happening *right now*
+        market_context = await get_market_analysis(current_user=current_user)
+        
+        response_text = await chatbot.process_chat_query(request.query, market_context)
+        return {"response": response_text, "confidence": 95}
+    except Exception as e:
+        logger.error(f"Chat API Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@app.get("/api/strategy/report")
+async def get_strategy_report(current_user: str = Depends(get_current_user)):
+    """Tier 3: Triggers the Strategy Advisor batch analysis."""
+    try:
+        report = await strategy_advisor.generate_weekly_report()
+        return report
+    except Exception as e:
+        logger.error(f"Strategy Report Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # --- SECURE WEBSOCKET ---
 
@@ -338,13 +399,24 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                     try:
                         # Step 1: Consult AI for initial recommendation
                         await websocket.send_json({"type": "ai_msg", "text": "Significant opportunity detected. Consulting AI Agent..."})
-                        ai_analysis = await ai_agent.analyze_opportunity(binance_price, bybit_price, spread)
-                        ai_decision = ai_analysis.get("decision")
-                        reason = ai_analysis.get("reason")
-                        conf = ai_analysis.get("confidence")
+                        
+                        try:
+                            ai_analysis = await ai_agent.analyze_opportunity(binance_price, bybit_price, spread)
+                            
+                            # Tier 1 Audit: Save the AI's exact reasoning to the database
+                            db_core.log_llm_decision(binance_price, bybit_price, spread, ai_analysis)
+                            
+                            ai_decision = ai_analysis.get("decision", "REJECT")
+                            reason = ai_analysis.get("reasoning", "No reason provided")
+                            conf = ai_analysis.get("confidence", 0)
+                        except Exception as e:
+                            logger.error(f"AI Agent call failed: {e}")
+                            ai_decision = "REJECT"
+                            reason = "AI Processing Error"
+                            conf = 0
 
                         if ai_decision == "EXECUTE":
-                            await websocket.send_json({"type": "ai_msg", "text": f"AI APPROVED: {reason} (Confidence: {conf}). Awaiting human confirmation..."})
+                            await websocket.send_json({"type": "ai_msg", "text": f"AI APPROVED: {reason} (Confidence: {conf}%). Awaiting human confirmation..."})
 
                             # Step 2: Stage the trade and notify frontend for manual approval
                             est_profit = round((spread / 100) * binance_price * trade_size, 2)

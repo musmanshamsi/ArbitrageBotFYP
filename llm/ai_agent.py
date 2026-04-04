@@ -1,27 +1,71 @@
 import os
 import json
+import re
+import logging
 from google import genai
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Setup basic logging for this module
+logger = logging.getLogger(__name__)
+
 class AIAgent:
-    def __init__(self):
-        # 1. SETUP PRIMARY AI (Google Gemini - New SDK)
-        self.gemini_key = os.getenv("GEMINI_API_KEY")
-        self.gemini_client = None
-        if self.gemini_key:
-            # New 2026 Syntax for Gemini
-            self.gemini_client = genai.Client(api_key=self.gemini_key)
-        else:
-            print("⚠️ Warning: GEMINI_API_KEY not found.")
+    def __init__(self, api_key: str, groq_api_key: str = None):
+        """
+        Initializes the AI Agent with the modern google-genai SDK.
+        """
+        if not api_key:
+            logger.error("CRITICAL: Gemini API key is missing! AI features will fail.")
+            
+        # v1.0+ Syntax: Instantiate the Client directly
+        self.client = genai.Client(api_key=api_key)
+        self.model_id = 'gemini-2.0-flash'
+        
+        # Store Groq key for Tier 1 fallback (if used later)
+        self.groq_api_key = groq_api_key
 
-        # 2. SETUP FALLBACK AI (Groq / LLaMA 3.1)
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
+    def _clean_and_parse_json(self, raw_text: str) -> dict:
+        """
+        Strips markdown wrappers and enforces a strict fallback schema.
+        """
+        fallback_schema = {
+            "decision": "WAIT",
+            "confidence": 0,
+            "position_size": 0.0,
+            "reasoning": "Failsafe triggered: LLM output was unparsable or API failed."
+        }
 
-    async def analyze_opportunity(self, binance_price, bybit_price, spread):
+        if not raw_text:
+            return fallback_schema
+
+        try:
+            # Regex to aggressively strip ```json and ``` tags
+            cleaned_text = re.sub(r'```json\s*(.*?)\s*```', r'\1', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+            
+            # If no 'json' tag was found but backticks remain, simple strip
+            if "```" in cleaned_text:
+                cleaned_text = cleaned_text.replace("```", "").strip()
+            
+            parsed_data = json.loads(cleaned_text)
+            
+            # Schema Validation: Ensure required keys exist
+            for key in ["decision", "confidence", "reasoning"]:
+                if key not in parsed_data:
+                    logger.warning(f"Missing key '{key}' in LLM response. Using fallback.")
+                    return fallback_schema
+                    
+            return parsed_data
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON Parsing Error: {str(e)}. Raw text: {raw_text}")
+            return fallback_schema
+        except Exception as e:
+            logger.error(f"Unexpected error in JSON parser: {str(e)}")
+            return fallback_schema
+
+    async def analyze_opportunity(self, binance_price: float, bybit_price: float, spread: float) -> dict:
         """Analyzes the spread using Gemini, with an automatic fallback to Groq."""
         
         prompt = f"""
@@ -30,57 +74,70 @@ class AIAgent:
         Bybit Price: ${bybit_price}
         Spread: {spread}%
 
-        Analyze this spread. Is it safe to trade?
+        Analyze this spread. Is it safe to trade? 
+        Consider fee/slippage overhead (~0.25%).
+        
         Respond ONLY in valid JSON format:
-        {{"decision": "EXECUTE" or "REJECT", "reason": "Short explanation", "confidence": 0-100}}
+        {{
+            "decision": "EXECUTE" or "REJECT", 
+            "reasoning": "Short explanation", 
+            "confidence": 0-100,
+            "position_size": 0.0
+        }}
         """
 
         # --- ATTEMPT 1: PRIMARY AI (GEMINI) ---
-        if self.gemini_client:
+        if self.client:
             try:
-                # Use the new async-compatible generate_content if available, 
-                # or just run the sync call in a thread if needed.
-                # The genai.Client is generally sync-only in some versions, 
-                # but we'll try the standard call and wrap if it hangs.
-                response = self.gemini_client.models.generate_content(
-                    model='gemini-2.0-flash', 
+                # v1.0+ Syntax: generate_content is called on client.models
+                response = self.client.models.generate_content(
+                    model=self.model_id,
                     contents=prompt
                 )
-                return self._parse_json(response.text)
+                return self._clean_and_parse_json(response.text)
             
             except Exception as e_gemini:
-                print(f"\n⚠️ Gemini Failed: {e_gemini}")
-                print("🔄 Switching to Fallback AI (Groq)...")
+                logger.error(f"❌ Gemini API Error: {e_gemini}")
+                logger.info("🔄 Switching to Fallback AI (Groq)...")
         else:
-             print("\n⚠️ No Gemini Client configured. Switching to Fallback AI (Groq)...")
+            logger.warning("No Gemini Client configured. Switching to Fallback AI (Groq)...")
 
         # --- ATTEMPT 2: FALLBACK AI (GROQ) ---
         if self.groq_client:
             try:
-                # Groq has an async client but we'll stick to wrapping or direct for now
                 chat_completion = self.groq_client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.1-8b-instant", 
-                    response_format={"type": "json_object"} 
+                    model="llama-3.1-8b-instant",
+                    response_format={"type": "json_object"}
                 )
                 return json.loads(chat_completion.choices[0].message.content)
             except Exception as e_groq:
-                print(f"❌ Fallback AI also failed: {e_groq}")
+                logger.error(f"❌ Fallback AI Error: {e_groq}")
         else:
-            print("❌ No GROQ_API_KEY found in .env. Cannot use fallback.")
+            logger.warning("No Groq client configured. Cannot use fallback.")
 
         # --- ATTEMPT 3: FAIL-SAFE ABORT ---
         return {
             "decision": "REJECT", 
-            "reason": "Both AI APIs unreachable. Safety abort.", 
+            "reason": "All AI models unreachable. Safety abort.", 
             "confidence": 0
         }
 
-    def _parse_json(self, text):
-        """Helper function to clean up AI output and convert it to a Python dictionary."""
+    async def chat(self, question: str, system_prompt: str = "You are a helpful assistant.") -> str:
+        """General chat interface for the dashboard assistant."""
+        if not self.client:
+            return "AI Agent is not configured. Please check your API keys."
+
         try:
-            clean_text = text.replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_text)
-        except json.JSONDecodeError:
-            print(f"⚠️ Failed to parse AI response into JSON. Raw output: {text}")
-            return {"decision": "REJECT", "reason": "AI returned invalid format", "confidence": 0}
+            # v1.0+ Syntax for Chat
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=[
+                    {"role": "user", "parts": [{"text": f"System Instruction: {system_prompt}\n\nUser Question: {question}"}]}
+                ]
+            )
+            return response.text
+        except Exception as e:
+            logger.error(f"Chat Error: {e}")
+            return "I'm having trouble connecting to my brain right now. Please try again later."
+

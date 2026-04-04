@@ -1,7 +1,7 @@
 ================================================================================
                     ARBPRO - AI ARBITRAGE BOT: PROJECT STATE REPORT
-                         Final Year Project (FYP) | March 28, 2026
-                              v6.0 - Modular Components & Recharts Edition
+                         Final Year Project (FYP) | April 4, 2026
+                              v6.5 - LLM Core & Chat Logic Standardization
 ================================================================================
 
 1. PROJECT OVERVIEW
@@ -35,7 +35,7 @@ with a FastAPI backend utilizing real-time data oracles.
 
 ================================================================================
 
-3. SYSTEM VERIFICATION RESULTS (v6.0 Audit)
+3. SYSTEM VERIFICATION RESULTS (v6.5 Audit)
 -------------------------------------------
 
   [CALCULATIONS]
@@ -46,6 +46,7 @@ with a FastAPI backend utilizing real-time data oracles.
   [AI CORE]
   - [OK] Model Loading: GRU 2-layer network (gru_model.pth) loads successfully.
   - [OK] Scaler Params: Normalization/Denormalization logic verified.
+  - [OK] LLM Standardization: Google-GenAI v1.0+ migrated and verified.
   - [OK] Logic: Bot only executes if Spread AND AI Prediction meet threshold.
 
   [CONNECTIVITY]
@@ -57,6 +58,7 @@ with a FastAPI backend utilizing real-time data oracles.
   - [OK] Recharts Integration: Fully replacing legacy SVG engine.
   - [OK] Layout Integrity: Vertical component overlap resolved.
   - [OK] WebSocket Data: Handlers confirmed for 'market', 'trade', 'pending_trade'.
+  - [OK] AI Chat: Real-time analyst sidebar connected to FastAPI /api/chat.
 
 ================================================================================
 
@@ -69,6 +71,8 @@ with a FastAPI backend utilizing real-time data oracles.
 - REAL BYBIT FETCH: api.py now attempts to fetch real Bybit prices instead
   of purely simulating them. Fallback logic remains for stability.
 - GLASSMORPHISM UI: Preserved high-tech neon aesthetic across all modules.
+- LLM V1.0 MIGRATION: Standardized on google-genai for cleaner, safer logic.
+- ROBUST JSON PARSER: Implemented Regex-based cleaning for AI responses.
 
 ================================================================================
 
@@ -83,12 +87,34 @@ with a FastAPI backend utilizing real-time data oracles.
 
 ================================================================================
 
-6. NEXT STEPS & RECOMMENDATIONS
+6. LLM CORE STANDARDIZATION (v6.5 Update)
+-----------------------------------------
+- [FIXED] `llm/chatbot.py`: Resolved `__init__` mismatch and aligned method 
+  calls. Implemented "Senior Arbitrage Analyst" persona via system prompts.
+
+- [FIXED] `llm/ai_agent.py`: Migrated entirely to `google-genai` (v1.0+) syntax. 
+  Removed mixed SDK patterns and implemented `Client` instantiation.
+
+- [FIXED] JSON Robustness: Added Regex `r'```json\s*(.*?)\s*```'` parsing to 
+  defensively handle Markdown artifacts from LLMs (Gemini/Groq).
+
+- [FIXED] API Integration: Added `/api/chat` POST endpoint to `api.py` and 
+  connected the frontend `handleSend` trigger to the real backend analyst.
+
+- [FIXED] Stability: Added module-level logging and error handling to ensure 
+  trading continues even if the AI logic core experiences latency or errors.
+
+- [FIXED] Verification: Added `test_llm_logic.py` and `test_llm_offline.py` for 
+  automated validation of parsing and fallback logic.
+
+================================================================================
+
+7. NEXT STEPS & RECOMMENDATIONS
 -------------------------------
 1. [PROXY] Setup a stable local VPN/Proxy for consistent Bybit data.
 2. [AUTH] Extend JWT lifetime or implement refresh tokens.
 3. [DASHBOARD] Add a "Market Depth" visualization component.
 
 ================================================================================
-REPORT END | v6.0 - System Verified | 2026-03-28
+REPORT END | v6.5 - LLM Standardized | 2026-04-04
 ================================================================================

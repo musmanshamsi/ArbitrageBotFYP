@@ -129,13 +129,33 @@ const Dashboard = () => {
   }, [toast, navigate]);
 
   // --- ACTIONS ---
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', text: input }]);
+    const userMsg = input;
+    setMessages(prev => [...prev.slice(-49), { role: 'user', text: userMsg }]);
     setInput("");
-    setTimeout(() => {
-      setMessages(prev => [...prev, { role: 'ai', text: "Analyzing query against market depth... operational consensus reached." }]);
-    }, 1000);
+    
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/chat", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ question: userMsg }),
+      });
+      
+      const data = await res.json();
+      if (data.status === "success") {
+        setMessages(prev => [...prev.slice(-49), { role: 'ai', text: data.response }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'ai', text: "The analyst is currently tied up with market data. Please try again soon." }]);
+      }
+    } catch (err) {
+      console.error("Chat Error:", err);
+      setMessages(prev => [...prev, { role: 'ai', text: "Network divergence detected. AI Core unreachable." }]);
+    }
   };
 
   useEffect(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
