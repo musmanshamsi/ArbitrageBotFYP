@@ -1,16 +1,32 @@
+# Core Backend
 fastapi
 uvicorn
-torch
-passlib
-python-jose
-google-genai
-groq
 python-dotenv
-ccxt
-pandas
+pydantic
+pydantic-settings
+
+# Authentication & Security
+passlib[bcrypt]
+python-jose[cryptography]
+cryptography
+
+# AI & Machine Learning
+torch
 numpy
+pandas
 scikit-learn
 joblib
-matplotlib
-requests
+
+# Multi-Tier LLM SDKs
+google-genai
+google-generativeai
+groq
 openai
+
+# Trading & External APIs
+ccxt
+requests
+
+# Utilities
+matplotlib
+logging
