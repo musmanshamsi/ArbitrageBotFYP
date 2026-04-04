@@ -52,8 +52,10 @@ const Dashboard = () => {
 
   // --- DATA FETCHING & WEBSOCKETS ---
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     const fetchDatabaseHistory = async () => {
-      const token = localStorage.getItem('token');
       try {
         const res = await fetch("http://127.0.0.1:8000/api/history", {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -66,69 +68,120 @@ const Dashboard = () => {
         console.error("Failed to fetch history:", e);
       }
     };
+
+    const fetchBotStatus = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/bot_status", {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return handleLogout();
+        const data = await res.json();
+        setBotRunning(Boolean(data.bot_active));
+        if (typeof data.current_threshold === 'number') setThreshold(data.current_threshold);
+      } catch (e) {
+        console.error("Failed to fetch bot status:", e);
+      }
+    };
+
     fetchDatabaseHistory();
+    fetchBotStatus();
   }, [navigate]);
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<number | null>(null);
+  const reconnectAttempts = useRef(0);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/market?token=${token}`);
+    let isMounted = true;
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    const connectSocket = () => {
+      if (!isMounted) return;
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
 
-      if (data.type === "ai_msg") {
-        setMessages(prev => [...prev.slice(-49), { role: 'ai', text: data.text }]);
-      } else if (data.type === "pending_trade") {
-        setPendingTrade(data.trade);
-        setApprovalModalOpen(true);
-      } else if (data.type === "trade") {
-        setTradeLog(prev => [data.trade, ...prev]);
-        if (data.raw_profit !== undefined) setTotalProfit(p => p + data.raw_profit);
-        toast({ 
-          title: "Arbitrage Executed", 
-          description: `Captured: ${data.trade.profit}`, 
-          className: "bg-green-500 text-black font-bold border-none shadow-[0_0_20px_rgba(34,197,94,0.4)]" 
-        });
-      } else if (data.type === "market") {
-        setMarketData(data);
-        if (data.binance_bal !== undefined) setBinanceBalance(data.binance_bal);
-        if (data.bybit_bal !== undefined) setBybitBalance(data.bybit_bal);
-        if (data.order_book !== undefined) setOrderBook(data.order_book);
+      const socket = new WebSocket(`ws://127.0.0.1:8000/ws/market?token=${token}`);
+      socketRef.current = socket;
 
-        // Spread Tracking
-        setSpreadData(prev => [...prev.slice(-39), {
-          time: Date.now(),
-          spread: Number(data.spread) || 0,
-        }]);
+      socket.onopen = () => {
+        reconnectAttempts.current = 0;
+        console.info('Market WebSocket connected');
+      };
 
-        // OHLC Tracking
-        const currentPrice = Number(data.binance || data.price || 0);
-        if (currentPrice > 0) {
-          setOhlcData(prev => {
-            const now = Date.now();
-            const lastCandle = prev[prev.length - 1];
-            if (!lastCandle || (now - lastCandle.time > 5000)) {
-              return [...prev.slice(-39), {
-                time: now, open: currentPrice, high: currentPrice, low: currentPrice, close: currentPrice
-              }];
-            } else {
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "ai_msg") {
+          setMessages(prev => [...prev.slice(-49), { role: 'ai', text: data.text }]);
+        } else if (data.type === "pending_trade") {
+          setPendingTrade(data.trade);
+          setApprovalModalOpen(true);
+        } else if (data.type === "trade") {
+          setTradeLog(prev => [data.trade, ...prev]);
+          if (data.raw_profit !== undefined) setTotalProfit(p => p + data.raw_profit);
+          toast({ 
+            title: "Arbitrage Executed", 
+            description: `Captured: ${data.trade.profit}`, 
+            className: "bg-green-500 text-black font-bold border-none shadow-[0_0_20px_rgba(34,197,94,0.4)]" 
+          });
+        } else if (data.type === "market") {
+          setMarketData(data);
+          if (data.binance_bal !== undefined) setBinanceBalance(data.binance_bal);
+          if (data.bybit_bal !== undefined) setBybitBalance(data.bybit_bal);
+          if (data.order_book !== undefined) setOrderBook(data.order_book);
+          if (data.bot_active !== undefined) setBotRunning(Boolean(data.bot_active));
+
+          setSpreadData(prev => [...prev.slice(-39), {
+            time: Date.now(),
+            spread: Number(data.spread) || 0,
+          }]);
+
+          const currentPrice = Number(data.binance || data.price || 0);
+          if (currentPrice > 0) {
+            setOhlcData(prev => {
+              const now = Date.now();
+              const lastCandle = prev[prev.length - 1];
+              if (!lastCandle || (now - lastCandle.time > 5000)) {
+                return [...prev.slice(-39), {
+                  time: now, open: currentPrice, high: currentPrice, low: currentPrice, close: currentPrice
+                }];
+              }
               return [...prev.slice(0, -1), {
                 ...lastCandle,
                 close: currentPrice,
                 high: Math.max(lastCandle.high, currentPrice),
                 low: Math.min(lastCandle.low, currentPrice)
               }];
-            }
-          });
+            });
+          }
         }
-      }
+      };
+
+      socket.onclose = (event) => {
+        if (!isMounted) return;
+        if (event.code === 1008) {
+          handleLogout();
+          return;
+        }
+
+        const delay = Math.min(30000, 1000 * 2 ** reconnectAttempts.current);
+        reconnectAttempts.current += 1;
+        reconnectTimer.current = window.setTimeout(() => connectSocket(), delay);
+      };
+
+      socket.onerror = (error) => {
+        console.error("Market WebSocket error", error);
+      };
     };
 
-    socket.onclose = (event) => { if (event.code === 1008) handleLogout(); };
-    socket.onerror = () => { console.error("WebSocket Error"); };
-    return () => socket.close();
+    connectSocket();
+
+    return () => {
+      isMounted = false;
+      if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current);
+      socketRef.current?.close();
+    };
   }, [toast, navigate]);
 
   // --- ACTIONS ---
@@ -147,14 +200,16 @@ const Dashboard = () => {
     const token = localStorage.getItem('token');
     const newState = !botRunning;
     try {
-      setBotRunning(newState);
-      await fetch("http://127.0.0.1:8000/toggle_bot", {
+      const res = await fetch("http://127.0.0.1:8000/toggle_bot", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ active: newState }),
       });
+      if (!res.ok) {
+        throw new Error("Toggle failed");
+      }
+      setBotRunning(newState);
     } catch (e) {
-      setBotRunning(!newState);
       toast({ title: "System Offline", description: "Could not reach trading engine.", variant: "destructive" });
     }
   };

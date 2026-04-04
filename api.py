@@ -202,6 +202,12 @@ async def toggle_bot(payload: dict, current_user: str = Depends(get_current_user
     print(f"🔐 Operator '{current_user}' changed bot status to: {bot_active}")
     return {"status": "success", "bot_active": bot_active}
 
+@app.get("/api/bot_status")
+async def get_bot_status(current_user: str = Depends(get_current_user)):
+    global bot_active, current_threshold
+    print(f"🔐 Operator '{current_user}' requested bot status.")
+    return {"status": "success", "bot_active": bot_active, "current_threshold": current_threshold}
+
 @app.post("/api/threshold")
 async def update_threshold(payload: dict, current_user: str = Depends(get_current_user)):
     global current_threshold
@@ -261,7 +267,8 @@ async def market_websocket(websocket: WebSocket, token: str = None):
         "opportunity": False,
         "latency": 0,
         "binance_bal": 0.00,
-        "bybit_bal": 0.00
+        "bybit_bal": 0.00,
+        "bot_active": bot_active
     })
 
     try:
@@ -442,7 +449,8 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                     "latency": 45,
                     "binance_bal": bin_balance,
                     "bybit_bal": byb_balance,
-                    "order_book": order_book
+                    "order_book": order_book,
+                    "bot_active": bot_active
                 })
 
             except (WebSocketDisconnect, RuntimeError):

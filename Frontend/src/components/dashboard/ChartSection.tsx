@@ -57,15 +57,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   ohlcData,
   threshold,
 }) => {
-  // Use real data if available, otherwise use simulated data
-  const finalSpreadData = useMemo(() => 
-    spreadData && spreadData.length > 0 ? spreadData : simulatedSpreadData, 
-  [spreadData]);
-
-  const finalOhlcData = useMemo(() => 
-    ohlcData && ohlcData.length > 0 ? ohlcData : simulatedOhlcData, 
-  [ohlcData]);
-
+  const finalSpreadData = spreadData && spreadData.length > 0 ? spreadData : simulatedSpreadData;
+  const finalOhlcData = ohlcData && ohlcData.length > 0 ? ohlcData : simulatedOhlcData;
   const isLive = spreadData && spreadData.length > 0;
 
   return (
