@@ -45,9 +45,13 @@ for i in range(sequence_length, len(scaled_data)):
 X = np.array(X).reshape(-1, sequence_length, 1)
 y = np.array(y).reshape(-1, 1)
 
-# Convert to Tensors
-X_t = torch.Tensor(X)
-y_t = torch.Tensor(y)
+# Hardware Accelerator Check
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+print(f"⚙️ Training on Device: {device}")
+
+# Convert to Tensors and mount to active accelerator
+X_t = torch.Tensor(X).to(device)
+y_t = torch.Tensor(y).to(device)
 
 # 4. The GRUNet Class (From your project screenshot)
 class GRUNet(nn.Module):
@@ -70,7 +74,7 @@ class GRUNet(nn.Module):
         return hidden
 
 # 5. Training Settings
-model = GRUNet(1, 50, 1, 2)
+model = GRUNet(1, 50, 1, 2).to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 train_loader = DataLoader(TensorDataset(X_t, y_t), batch_size=32, shuffle=True)
@@ -82,7 +86,7 @@ for epoch in range(epochs):
     model.train()
     total_loss = 0
     for inputs, labels in train_loader:
-        h = model.init_hidden(inputs.size(0))
+        h = model.init_hidden(inputs.size(0)).to(device)
         optimizer.zero_grad()
         out, h = model(inputs, h)
         loss = criterion(out, labels)

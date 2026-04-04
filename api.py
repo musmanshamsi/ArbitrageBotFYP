@@ -4,7 +4,7 @@ import os
 import sqlite3
 import secrets
 import ccxt.async_support as ccxt
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,12 +12,13 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from passlib.context import CryptContext
+import bcrypt
 
 # --- AI & TRADING IMPORTS ---
 from predictor import Predictor
 from llm.ai_agent import AIAgent
 from execution.trader import TradeExecutor
+from config import ExchangeConfig
 
 load_dotenv()
 
@@ -27,7 +28,14 @@ app = FastAPI()
 # 2. CONFIGURE CORS (Allows React to talk to Python)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://localhost:8080", 
+        "http://localhost:8081",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,7 +46,7 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set in .env")
 ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Removed pwd_context
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
@@ -63,6 +71,8 @@ TRADES_DB = "arbitrage.db"
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -77,6 +87,8 @@ def init_db():
     
     # Init trades db
     conn = sqlite3.connect(TRADES_DB)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS trades 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -106,14 +118,10 @@ ai_brain = Predictor()
 ai_brain.load(model_path='gru_model.pth', scaler_path='scaler_params.npy')
 ai_agent = AIAgent()
 
-# Initialize Trader
-trader = TradeExecutor(
-    binance_api=os.getenv("BINANCE_TESTNET_API_KEY"),
-    binance_secret=os.getenv("BINANCE_TESTNET_SECRET"),
-    bybit_api=os.getenv("BYBIT_TESTNET_API_KEY"),
-    bybit_secret=os.getenv("BYBIT_TESTNET_SECRET"),
-    testnet=True
-)
+# Initialize Trader with professional configuration
+ExchangeConfig.validate()
+ExchangeConfig.print_config()
+trader = TradeExecutor()  # Uses ExchangeConfig automatically
 
 def load_history():
     conn = sqlite3.connect(TRADES_DB)
@@ -148,7 +156,7 @@ async def register(user: UserAuth):
         if existing:
             return JSONResponse(status_code=400, content={"detail": "Operator already exists."})
             
-        hashed_pw = pwd_context.hash(user.password)
+        hashed_pw = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         conn.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (user.username, hashed_pw))
         conn.commit()
         return {"status": "success", "message": "User registered"}
@@ -163,8 +171,9 @@ async def login(user: UserAuth):
     user_record = conn.execute("SELECT password_hash FROM users WHERE username = ?", (user.username,)).fetchone()
     conn.close()
 
-    if user_record and pwd_context.verify(user.password, user_record['password_hash']):
-        token = jwt.encode({"sub": user.username}, SECRET_KEY, algorithm=ALGORITHM)
+    if user_record and bcrypt.checkpw(user.password.encode('utf-8'), user_record['password_hash'].encode('utf-8')):
+        expire = datetime.utcnow() + timedelta(days=7)
+        token = jwt.encode({"sub": user.username, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
         # Note: Depending on frontend implementation it may expect token or access_token
         return {"status": "success", "token": token, "username": user.username, "access_token": token, "token_type": "bearer"}
     
@@ -177,8 +186,9 @@ async def token_login(username: str = Form(...), password: str = Form(...)):
     user_record = conn.execute("SELECT password_hash FROM users WHERE username = ?", (username,)).fetchone()
     conn.close()
 
-    if user_record and pwd_context.verify(password, user_record['password_hash']):
-        token = jwt.encode({"sub": username}, SECRET_KEY, algorithm=ALGORITHM)
+    if user_record and bcrypt.checkpw(password.encode('utf-8'), user_record['password_hash'].encode('utf-8')):
+        expire = datetime.utcnow() + timedelta(days=7)
+        token = jwt.encode({"sub": username, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
         return {"access_token": token, "token_type": "bearer", "username": username}
     
     raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -401,6 +411,14 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                 else:
                     status_msg = "SYSTEM_IDLE"
 
+                # 5. Fetch Market Depth L2 Orderbook
+                order_book = {"bids": [], "asks": []}
+                try:
+                    ob = await asyncio.wait_for(trader.binance.fetch_order_book(symbol, limit=10), timeout=1.5)
+                    order_book = {"bids": ob['bids'], "asks": ob['asks']}
+                except Exception:
+                    pass
+
                 candle = {
                     "open": binance_price - 2,
                     "high": binance_price + 5,
@@ -423,7 +441,8 @@ async def market_websocket(websocket: WebSocket, token: str = None):
                     "opportunity": opportunity,
                     "latency": 45,
                     "binance_bal": bin_balance,
-                    "bybit_bal": byb_balance
+                    "bybit_bal": byb_balance,
+                    "order_book": order_book
                 })
 
             except (WebSocketDisconnect, RuntimeError):

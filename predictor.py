@@ -1,9 +1,22 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import os
 
-class GRUNet(nn.Module):
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("WARNING: PyTorch not installed. GRU model predictions will be unavailable.")
+    print("Install with: py -3.10 -m pip install torch")
+    
+    # Mock nn.Module for graceful fallback
+    class nn:
+        class Module:
+            pass
+    torch = None
+
+class GRUNet(nn.Module if TORCH_AVAILABLE else object):
     def __init__(self, input_dim=1, hidden_dim=50, output_dim=1, n_layers=2, drop_prob=0.2):
         super(GRUNet, self).__init__()
         self.hidden_dim = hidden_dim
@@ -20,11 +33,18 @@ class GRUNet(nn.Module):
 class Predictor:
     def __init__(self):
         self.model = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = None
         self.min_val = None
         self.max_val = None
+        
+        if TORCH_AVAILABLE:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     def load(self, model_path='gru_model.pth', scaler_path='scaler_params.npy'):
+        if not TORCH_AVAILABLE:
+            print("WARNING: PyTorch unavailable - model prediction disabled")
+            return
+            
         self.model = GRUNet(1, 50, 1, 2).to(self.device)
         
         if os.path.exists(model_path):
@@ -41,7 +61,7 @@ class Predictor:
             print("[OK] Scaler Loaded.")
 
     def predict(self, data_sequence):
-        if self.model is None or self.min_val is None:
+        if not TORCH_AVAILABLE or self.model is None or self.min_val is None:
             return 0.0
 
         data_sequence = np.array(data_sequence).flatten()

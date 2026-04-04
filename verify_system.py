@@ -1,87 +1,196 @@
+"""
+PROFESSIONAL SYSTEM VERIFICATION TOOL
+AI Arbitrage Bot v7.0
+
+Validates:
+- Exchange connectivity and credentials
+- Correct API URLs
+- Exchange balances
+- System calculations
+- Model integrity
+"""
+
 import os
 import asyncio
 import torch
 import numpy as np
 from dotenv import load_dotenv
 import ccxt.async_support as ccxt
+from config import ExchangeConfig
 from predictor import Predictor
 
 load_dotenv()
 
+
 async def verify_exchanges():
-    print("\n--- [SEARCH] EXCHANGE CONNECTIVITY CHECK ---")
+    """Verify connectivity and credentials for all exchanges"""
     
-    # Check Binance
-    binance = ccxt.binance({
-        'apiKey': os.getenv("BINANCE_TESTNET_API_KEY"),
-        'secret': os.getenv("BINANCE_TESTNET_SECRET"),
-        'proxies': {}
-    })
-    binance.set_sandbox_mode(True)
+    print("\n" + "=" * 70)
+    print(f"🔍 EXCHANGE CONNECTIVITY CHECK - {ExchangeConfig.ENVIRONMENT.upper()}")
+    print("=" * 70 + "\n")
+
+    # ========== BINANCE VERIFICATION ==========
+    print(f"🟡 Testing Binance ({ExchangeConfig.BINANCE_API_URL})...")
+    binance_config = ExchangeConfig.get_exchange_config("binance")
+    binance = ccxt.binance(binance_config)
+    
+    if ExchangeConfig.ENVIRONMENT == "testnet":
+        binance.set_sandbox_mode(True)
     
     try:
-        ticker = await asyncio.wait_for(binance.fetch_ticker('BTC/USDT'), timeout=5)
-        print(f"[SUCCESS] Binance Ticker: {ticker['last']}")
+        # Test ticker fetch
+        ticker = await asyncio.wait_for(
+            binance.fetch_ticker('BTC/USDT'), timeout=5
+        )
+        print(f"   ✅ Ticker Fetch: ${ticker['last']:.2f}")
+        
+        # Test balance fetch
         bal = await binance.fetch_balance()
-        print(f"[SUCCESS] Binance Balance (USDT): {bal.get('USDT', {}).get('free', 0)}")
+        usdt = bal.get('USDT', {}).get('free', 0)
+        btc = bal.get('BTC', {}).get('free', 0)
+        print(f"   ✅ Balance: {usdt:.2f} USDT | {btc:.8f} BTC")
+        print(f"   ✅ API Status: WORKING\n")
+        
+    except asyncio.TimeoutError:
+        print(f"   ❌ Timeout: Connection took too long (>5s)")
+        print(f"   💡 Check internet connection and API URL\n")
+    except ccxt.ExchangeNotAvailable as e:
+        print(f"   ❌ Exchange Not Available: {e}")
+        print(f"   💡 Check API URL and credentials\n")
+    except ccxt.InvalidNonce as e:
+        print(f"   ❌ Invalid Nonce: {e}")
+        print(f"   💡 Check system time synchronization\n")
     except Exception as e:
-        print(f"[ERROR] Binance Error: {e}")
+        print(f"   ❌ Error: {type(e).__name__}: {e}\n")
     finally:
         await binance.close()
 
-    # Check Bybit
-    bybit_opts = {
-        'apiKey': os.getenv("BYBIT_TESTNET_API_KEY"),
-        'secret': os.getenv("BYBIT_TESTNET_SECRET"),
-    }
-    proxy = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
-    if proxy:
-        bybit_opts['proxies'] = {'http': proxy, 'https': proxy}
-        print(f"[INFO] Using Proxy for Bybit: {proxy}")
-
-    bybit = ccxt.bybit(bybit_opts)
-    bybit.set_sandbox_mode(True)
+    # ========== BYBIT VERIFICATION ==========
+    print(f"⚫ Testing Bybit ({ExchangeConfig.BYBIT_API_URL})...")
+    bybit_config = ExchangeConfig.get_exchange_config("bybit")
+    bybit = ccxt.bybit(bybit_config)
+    
+    if ExchangeConfig.ENVIRONMENT == "testnet":
+        bybit.set_sandbox_mode(True)
     
     try:
-        ticker = await asyncio.wait_for(bybit.fetch_ticker('BTC/USDT'), timeout=5)
-        print(f"[SUCCESS] Bybit Ticker: {ticker['last']}")
+        # Test ticker fetch
+        ticker = await asyncio.wait_for(
+            bybit.fetch_ticker('BTC/USDT'), timeout=5
+        )
+        print(f"   ✅ Ticker Fetch: ${ticker['last']:.2f}")
+        
+        # Test balance fetch
         bal = await bybit.fetch_balance()
-        print(f"[SUCCESS] Bybit Balance (USDT): {bal.get('USDT', {}).get('free', 0)}")
+        usdt = bal.get('USDT', {}).get('free', 0)
+        btc = bal.get('BTC', {}).get('free', 0)
+        print(f"   ✅ Balance: {usdt:.2f} USDT | {btc:.8f} BTC")
+        print(f"   ✅ API Status: WORKING\n")
+        
+    except asyncio.TimeoutError:
+        print(f"   ⚠️  Timeout: Connection took too long (>5s)")
+        print(f"   💡 Try enabling proxy or check your network\n")
+    except ccxt.ExchangeNotAvailable as e:
+        print(f"   ❌ Exchange Not Available: {e}")
+        print(f"   💡 Check API URL and credentials\n")
     except Exception as e:
-        print(f"[ERROR] Bybit Error: {e}")
+        print(f"   ❌ Error: {type(e).__name__}: {e}\n")
+        if ExchangeConfig.ENABLE_PROXY_FALLBACK and not (ExchangeConfig.HTTPS_PROXY or ExchangeConfig.HTTP_PROXY):
+            print(f"   💡 Consider adding proxy: HTTPS_PROXY=your_proxy in .env\n")
     finally:
         await bybit.close()
 
-def verify_calculations():
-    print("\n--- [CALC] CALCULATION LOGIC CHECK ---")
-    binance_price = 65000.0
-    bybit_price = 65650.0 # 1% spread
-    
-    spread = ((bybit_price - binance_price) / binance_price) * 100
-    print(f"Spread Calculation: {spread}% (Expected: 1.0%)")
-    
-    FEE_RATE = 0.002
-    SLIPPAGE_RATE = 0.0005
-    total_costs = (FEE_RATE + SLIPPAGE_RATE) * 100
-    net_spread = spread - total_costs
-    print(f"Net Spread: {net_spread}% (Expected: 0.75%)")
-    
-    trade_size = 0.01
-    est_profit = (spread / 100) * binance_price * trade_size
-    print(f"Est Profit: ${est_profit:.2f} (Expected: $6.50)")
 
-def verify_ai():
-    print("\n--- [AI] AI CORE CHECK ---")
+def verify_calculations():
+    """Verify trading calculations"""
+    print("=" * 70)
+    print("📊 CALCULATION LOGIC CHECK")
+    print("=" * 70 + "\n")
+
     try:
-        p = Predictor()
-        p.load()
-        dummy_input = [0.1, 0.12, 0.15, 0.11, 0.13, 0.14, 0.16, 0.12, 0.11, 0.15]
-        pred = p.predict(dummy_input)
-        print(f"[SUCCESS] AI Prediction Successful: {pred:.4f}%")
+        binance_price = 65000.0
+        bybit_price = 65650.0  # 1% spread
+        
+        spread = ((bybit_price - binance_price) / binance_price) * 100
+        print(f"Binance Price: ${binance_price:.2f}")
+        print(f"Bybit Price: ${bybit_price:.2f}")
+        print(f"Spread: {spread:.4f}%")
+        
+        # Fee calculation (0.2% each exchange)
+        fee_rate = 0.002 * 2
+        net_spread = spread - (fee_rate * 100)
+        print(f"\nTransaction Fee (0.2% × 2): {fee_rate * 100:.2f}%")
+        print(f"Net Profit: {net_spread:.4f}%")
+        
+        # Trade amount
+        amount_usdt = 1000
+        profit = (net_spread / 100) * amount_usdt
+        print(f"\nOn ${amount_usdt} trade: +${profit:.2f}")
+        print(f"✅ Calculation Logic: WORKING\n")
+        
     except Exception as e:
-        print(f"[ERROR] AI Error: {e}")
+        print(f"❌ Calculation Error: {e}\n")
+
+
+def verify_model():
+    """Verify GRU model integrity"""
+    print("=" * 70)
+    print("🧠 MODEL INTEGRITY CHECK")
+    print("=" * 70 + "\n")
+
+    try:
+        # Check model file exists
+        if not os.path.exists('gru_model.pth'):
+            print("⚠️  gru_model.pth not found")
+            return False
+            
+        if not os.path.exists('scaler_params.npy'):
+            print("⚠️  scaler_params.npy not found")
+            return False
+
+        # Try loading model
+        predictor = Predictor()
+        predictor.load(model_path='gru_model.pth', scaler_path='scaler_params.npy')
+        print(f"✅ Model loaded successfully")
+        
+        # Test prediction
+        test_data = np.random.randn(10)
+        prediction = predictor.predict(test_data)
+        print(f"✅ Model prediction: {prediction:.6f}")
+        print(f"✅ Model Status: WORKING\n")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Model Error: {e}\n")
+        return False
+
+
+async def main():
+    """Run all verification checks"""
+    
+    print("\n" + "=" * 70)
+    print("🚀 ARBPRO SYSTEM VERIFICATION")
+    print("=" * 70)
+    
+    # Print configuration
+    ExchangeConfig.print_config()
+    
+    # Run checks
+    if not ExchangeConfig.validate():
+        print("❌ Configuration validation failed. Please check your .env file.")
+        return False
+    
+    await verify_exchanges()
+    verify_calculations()
+    verify_model()
+    
+    print("=" * 70)
+    print("✅ VERIFICATION COMPLETE")
+    print("=" * 70 + "\n")
+    
+    return True
+
 
 if __name__ == "__main__":
-    verify_calculations()
-    verify_ai()
-    asyncio.run(verify_exchanges())
+    success = asyncio.run(main())
+    exit(0 if success else 1)

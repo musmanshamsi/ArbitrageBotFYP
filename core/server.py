@@ -13,24 +13,16 @@ sys.path.append(parent_dir)
 from execution.trader import TradeExecutor
 from llm.ai_agent import AIAgent
 from core.database import save_trade
+from config import ExchangeConfig
 
 # 1. Load the hidden keys securely
 load_dotenv(os.path.join(parent_dir, '.env'))
 
-bin_api = os.getenv("BINANCE_TESTNET_API_KEY")
-bin_secret = os.getenv("BINANCE_TESTNET_SECRET")
-byb_api = os.getenv("BYBIT_TESTNET_API_KEY")
-byb_secret = os.getenv("BYBIT_TESTNET_SECRET")
+# 2. Validate configuration
+ExchangeConfig.validate()
 
-# 2. Initialize the components
-trader = TradeExecutor(
-    binance_api=bin_api,
-    binance_secret=bin_secret,
-    bybit_api=byb_api,
-    bybit_secret=byb_secret,
-    testnet=True
-)
-
+# 3. Initialize the components with professional config
+trader = TradeExecutor()  # Uses config automatically
 ai_bot = AIAgent()
 
 import asyncio
@@ -113,4 +105,4 @@ async def run_arbitrage_bot(ui_handle=None):
         await trader.close()
 
 if __name__ == "__main__":
-    asyncio.run(run_arbitrage_bot())
+    asyncio.run(run_arbitrage_bot())

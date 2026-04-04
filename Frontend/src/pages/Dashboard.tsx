@@ -16,6 +16,7 @@ import PortfolioMetrics from "@/components/dashboard/PortfolioMetrics";
 import OracleFeeds from "@/components/dashboard/OracleFeeds";
 import ChartSection from "@/components/dashboard/ChartSection";
 import ExecutionLedger from "@/components/dashboard/ExecutionLedger";
+import MarketDepth from "@/components/dashboard/MarketDepth";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TradeApprovalModal from "@/components/TradeApprovalModal";
 
@@ -42,6 +43,7 @@ const Dashboard = () => {
   const [pendingTrade, setPendingTrade] = useState<any>(null);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [threshold, setThreshold] = useState(0.08);
+  const [orderBook, setOrderBook] = useState<any>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -93,6 +95,7 @@ const Dashboard = () => {
         setMarketData(data);
         if (data.binance_bal !== undefined) setBinanceBalance(data.binance_bal);
         if (data.bybit_bal !== undefined) setBybitBalance(data.bybit_bal);
+        if (data.order_book !== undefined) setOrderBook(data.order_book);
 
         // Spread Tracking
         setSpreadData(prev => [...prev.slice(-39), {
@@ -249,6 +252,10 @@ const Dashboard = () => {
             ohlcData={ohlcData}
             threshold={threshold}
           />
+        </div>
+
+        <div className="flex-shrink-0">
+          <MarketDepth orderBook={orderBook} />
         </div>
 
         <div className="flex-shrink-0 mb-8">
