@@ -4,32 +4,58 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+def save_trade(route, profit, symbol="BTC/USDT"):
+    """Standalone helper to save a trade from any module."""
+    try:
+        db = DatabaseCore(db_path="arbitrage.db")
+        db.save_trade_record(route, profit, symbol)
+    except Exception as e:
+        logger.error(f"Global save_trade failed: {e}")
+
 class DatabaseCore:
-    def __init__(self, db_path="arbpro.db"):
+    def __init__(self, db_path="arbitrage.db"):
         """Initializes SQLite with enterprise PRAGMA optimizations."""
         self.db_path = db_path
         self._init_db()
 
     def _init_db(self):
-        """Creates tables with WAL mode for high-concurrency async reads/writes."""
+        """Creates tables and performs migrations if old schema exists."""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                # Performance optimizations
                 conn.execute("PRAGMA journal_mode=WAL;")
                 conn.execute("PRAGMA synchronous=NORMAL;")
                 
-                # 1. Existing Trades Table (Keeps your current data safe)
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS trades (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        symbol TEXT,
-                        profit_usdt REAL,
-                        spread REAL
-                    )
-                ''')
+                cursor = conn.cursor()
+                
+                # 1. TRADES TABLE MIGRATION/INIT
+                cursor.execute("PRAGMA table_info(trades)")
+                cols = [c[1] for c in cursor.fetchall()]
+                
+                if not cols:
+                    conn.execute('''
+                        CREATE TABLE trades (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            symbol TEXT DEFAULT 'BTC/USDT',
+                            route TEXT,
+                            profit REAL
+                        )
+                    ''')
+                else:
+                    # Migrate 'time' -> 'timestamp' if old schema exists
+                    if 'time' in cols and 'timestamp' not in cols:
+                        conn.execute("ALTER TABLE trades RENAME COLUMN time TO timestamp")
+                    # Ensure symbol exists
+                    if 'symbol' not in cols:
+                        conn.execute("ALTER TABLE trades ADD COLUMN symbol TEXT DEFAULT 'BTC/USDT'")
+                    # Ensure route exists
+                    if 'route' not in cols:
+                        conn.execute("ALTER TABLE trades ADD COLUMN route TEXT")
+                    # Rename profit_usdt -> profit if it exists
+                    if 'profit_usdt' in cols and 'profit' not in cols:
+                        conn.execute("ALTER TABLE trades RENAME COLUMN profit_usdt TO profit")
 
-                # 2. NEW: LLM Decision Audit Trail
+                # 2. LLM Decisions
                 conn.execute('''
                     CREATE TABLE IF NOT EXISTS llm_decisions (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +70,7 @@ class DatabaseCore:
                     )
                 ''')
 
-                # 3. NEW: Market Analysis Cache (To prevent API spam)
+                # 3. Market Analysis
                 conn.execute('''
                     CREATE TABLE IF NOT EXISTS market_analysis (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,9 +82,20 @@ class DatabaseCore:
                         resistance_level REAL
                     )
                 ''')
-            logger.info("Database Schema verified and updated to v7.0.")
+            logger.info(f"Database {self.db_path} schema verified.")
         except Exception as e:
-            logger.error(f"Database Initialization Error: {e}")
+            logger.error(f"Migration/Init Error: {e}")
+
+    def save_trade_record(self, route, profit, symbol="BTC/USDT"):
+        """Saves a successful arbitrage trade."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute('''
+                    INSERT INTO trades (symbol, route, profit)
+                    VALUES (?, ?, ?)
+                ''', (symbol, route, profit))
+        except Exception as e:
+            logger.error(f"Failed to save trade: {e}")
 
     def log_llm_decision(self, binance_price, bybit_price, spread, llm_output):
         """Saves the AI's exact reasoning for every trade."""

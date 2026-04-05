@@ -90,7 +90,9 @@ class AIAgent:
         if self.client:
             try:
                 # v1.0+ Syntax: generate_content is called on client.models
-                response = self.client.models.generate_content(
+                # Pushing the synchronous API call to a background thread to prevent event loop blockage
+                response = await asyncio.to_thread(
+                    self.client.models.generate_content,
                     model=self.model_id,
                     contents=prompt
                 )

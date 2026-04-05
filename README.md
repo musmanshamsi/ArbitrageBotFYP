@@ -1,54 +1,50 @@
 # ArbPro - AI Arbitrage Bot 🚀
-**v7.0 - Multi-Tier AI Architecture & Risk Guard Edition**
+**v7.0 Stable - Asynchronous Background Intelligence Edition**
 
-An enterprise-grade, AI-powered cryptocurrency arbitrage system designed to detect and exploit price discrepancies between **Binance** and **Bybit** on the **BTC/USDT** pair. Featuring a **5-Tier Autonomous Agent Stack**, a **Kelly Criterion Risk Engine**, and a high-fidelity glassmorphism dashboard.
+An enterprise-grade, AI-powered cryptocurrency arbitrage system designed for the **BTC/USDT** pair. Featuring a **Continuous Background Engine**, a **Manual Safety Valve**, and a high-fidelity glassmorphism dashboard.
 
-## 🌟 Key Features (v7.0)
+## 📡 v7.0 Performance Architecture
+*   **⛓️ Non-Blocking Async Logic**: I/O-bound tasks (LLM Analysis & CCXT API calls) are offloaded to background threads. The dashboard remains 100% fluid and responsive at all times.
+*   **🤖 Continuous Background Engine**: The arbitrage loop runs 24/7 independently of the browser. It detects, analyzes, and executes trades while the WebSocket operates as a stateless telemetry stream.
+*   **🛡️ Manual Operator Approval**: For safety, the AI Agent ("Tier 1") analyzes opportunities and then waits for a **Human Operator** to approve the final execution via the Dashboard.
+*   **⚠️ Simulation Fallback**: Built-in "Bybit Fallback" mode allows for full system demonstration even if the exchange API is geo-blocked or unreachable.
 
-*   **🧠 5-Tier LLM Multi-Agent System**:
-    *   **Tier 1 (AIAgent)**: Real-time decision logic & JSON schema validation.
-    *   **Tier 2 (MarketAnalyst)**: Identifies market regimes (Trending/Volatile) from 50 OHLCV candles.
-    *   **Tier 3 (StrategyAdvisor)**: Batch-processed weekly portfolio & spread optimization.
-    *   **Tier 4 (AnalystBot)**: Context-aware interactive assistant with senior quant persona.
-    *   **Tier 5 (RiskEngine)**: Fractional Kelly sizing & multi-layer circuit breakers.
-*   **🛡️ Dynamic Risk Management**:
-    *   **Kelly Criterion**: Automated position sizing (0.2x multiplier) for capital preservation.
-    *   **Circuit Breakers**: Hard daily drawdown limits ($50) and consecutive loss protection.
-*   **📡 Real-Time Intelligent Oracles**: High-frequency price fetching from Binance and Bybit via CCXT async links.
+## 🌟 Key Features
+*   **🧠 4-Tier LLM Multi-Agent System (Gemini 2.0 Flash)**:
+    *   **Agent**: Real-time opportunity analysis & risk-adjusted decision making.
+    *   **Analyst**: Broad market regime identification (Trending, Ranging, Volatile).
+    *   **Advisor**: Batch-processed weekly strategy optimization from trade history.
+    *   **ChatBot**: Context-aware Senior Quant Analyst for interactive strategy queries.
 *   **📊 Next-Gen Dashboard**: Modular React interface with **Recharts** for real-time spread visualizers and market status monitoring.
-*   **🗄️ DatabaseCore v7.0**: SQLite WAL-mode engine with full LLM decision auditing and market analysis caching.
+*   **🗄️ DatabaseCore v7.0**: SQLite WAL-mode engine with full auto-migration support and LLM decision auditing.
 
-## 🏗️ Project Architecture
+## 🏗️ Project Structure
+```text
+├── main.py             # Single entry point (Unified Startup)
+├── api.py              # FastAPI Engine & Background Arbitrage Loop
+├── core/
+│   ├── database.py     # SQLite Core & Schema Migrations
+│   └── risk_engine.py   # Kelly Criterion & Circuit Breakers
+├── execution/
+│   └── trader.py       # CCXT API Layer (Binance/Bybit)
+└── llm/                # Google Gemini v1.0+ SDK Modules
+```
 
-### [A] Backend (Python / FastAPI)
-*   **`api.py`**: Central WebSocket engine & Tiered LLM router.
-*   **`core/risk_engine.py`**: Circuit breakers and Kelly position sizing.
-*   **`core/database.py`**: High-concurrency WAL storage and auditing.
-*   **`llm/`**: Modular logic for all 5 AI Agents (GenAI v1.0+ SDK).
-*   **`execution/trader.py`**: CCXT order execution with proxy-restricted Bybit support.
+## 🚀 Quick Start (Portability Mode)
 
-### [B] Frontend (React / TypeScript)
-*   **`Dashboard.tsx`**: Main UI engine for real-time telemetry.
-*   **`components/dashboard/`**: Reusable modules (`Header`, `PortfolioMetrics`, `OracleFeeds`, `Sidebar`).
-*   **`Sidebar.tsx`**: Context-aware AI Logic Core with integrated chat.
-
-## 🛠️ Tech Stack
-
-*   **Backend**: Python 3.10+, FastAPI, Asyncio, CCXT, JWT, SQLite 3 (WAL).
-*   **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, Lucide.
-*   **AI/ML**: Google Generative AI (Gemini 2.0 Flash), GRU Neural Network (TensorFlow).
-*   **Design**: Modern Dark-Mode Glassmorphism.
-
-## 🚀 Quick Start
-
-### 1. Requirements
+### 1. Environment Setup
 ```bash
+# Initialize Virtual Environment
 python -m venv .venv
-source .venv/bin/activate  # Or .\.venv\Scripts\activate
+.\.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Mac/Linux
+
+# Install "Hardcore" Dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Environment (.env)
+### 2. Configure Credentials (.env)
+Copy `.env.example` to `.env` and fill in your keys:
 ```env
 GEMINI_API_KEY=your_key
 BINANCE_TESTNET_API_KEY=your_key
@@ -58,9 +54,9 @@ BYBIT_TESTNET_SECRET=your_secret
 JWT_SECRET_KEY=your_custom_secret
 ```
 
-### 3. Launch
-**Backend:** `python api.py`
-**Frontend:** `cd Frontend && npm install && npm run dev`
+### 3. Launch System
+**Unified Backend:** `python main.py`  
+**React Dashboard:** `cd Frontend && npm run dev`
 
 ---
-*Developed as a Final Year Project (FYP) for Cross-Exchange Arbitrage & AI Optimization.*
+*Developed for FYP - Final Year Project: Cross-Exchange Arbitrage & AI Logic Core.*

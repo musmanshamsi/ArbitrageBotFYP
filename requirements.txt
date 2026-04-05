@@ -1,32 +1,37 @@
-# Core Backend
+# --- PROD STABLE REQUIREMENTS v7.0 ---
+
+# Core API & Server
 fastapi
 uvicorn
 python-dotenv
 pydantic
 pydantic-settings
+python-multipart
 
-# Authentication & Security
+# Security & Authentication
 passlib[bcrypt]
 python-jose[cryptography]
 cryptography
 
-# AI & Machine Learning
+# AI & Prediction Core (GRU)
 torch
 numpy
 pandas
 scikit-learn
 joblib
 
-# Multi-Tier LLM SDKs
+# LLM Intelligence Layer
 google-genai
 google-generativeai
 groq
 openai
 
+# Data Processing & Visualization
+matplotlib
+
 # Trading & External APIs
 ccxt
 requests
 
-# Utilities
-matplotlib
+# System Logging
 logging
